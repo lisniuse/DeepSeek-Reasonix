@@ -248,9 +248,6 @@ export function Sidebar({
       if (g) g.list.push(s);
     }
 
-    const activeSessionForTab =
-      openTabs.find((t) => t.id === activeTabId)?.sessionName ?? activeSession;
-
     const result = [...byWorkspace.entries()].map(([key, { display, list }]) => {
       list.sort((a, b) => {
         const ap = pinnedSessions.has(a.name) ? 0 : 1;
@@ -258,15 +255,7 @@ export function Sidebar({
         if (ap !== bp) return ap - bp;
         return Date.parse(b.mtime) - Date.parse(a.mtime);
       });
-      return {
-        key,
-        ws: display,
-        list,
-        // Auto-expand only the folder that contains the currently active session.
-        // Folders with open-but-inactive tabs stay collapsed unless manually expanded.
-        hasOpen: list.some((s) => s.name === activeSessionForTab),
-        pinned: pinnedWs.has(key),
-      };
+      return { key, ws: display, list, pinned: pinnedWs.has(key) };
     });
 
     result.sort((a, b) => {
@@ -282,18 +271,7 @@ export function Sidebar({
       if (q && g.list.length === 0) return false;
       return true;
     });
-  }, [
-    sessions,
-    openTabs,
-    recentWorkspaces,
-    query,
-    hiddenWs,
-    pinnedWs,
-    pinnedSessions,
-    customTitles,
-    activeTabId,
-    activeSession,
-  ]);
+  }, [sessions, openTabs, recentWorkspaces, query, hiddenWs, pinnedWs, pinnedSessions, customTitles]);
 
   useEffect(() => {
     if (!menu) return;
@@ -327,8 +305,27 @@ export function Sidebar({
     };
   }, [folderMenu]);
 
-  const isExpanded = (ws: string, hasOpen: boolean) =>
-    overrides.get(ws) ?? (hasOpen || query.trim().length > 0);
+  // When the active session changes, auto-expand its folder (once).
+  // Using a ref to guard so groups re-renders don't re-trigger unnecessarily.
+  const prevActiveRef = useRef<string | undefined>(undefined);
+  useLayoutEffect(() => {
+    if (activeSessionName === prevActiveRef.current) return;
+    prevActiveRef.current = activeSessionName;
+    if (!activeSessionName) return;
+    for (const g of groups) {
+      if (g.list.some((s) => s.name === activeSessionName)) {
+        setOverrides((prev) => {
+          if (prev.get(g.key) === true) return prev;
+          const next = new Map(prev);
+          next.set(g.key, true);
+          return next;
+        });
+        break;
+      }
+    }
+  }, [activeSessionName, groups]);
+
+  const isExpanded = (ws: string) => overrides.get(ws) ?? (query.trim().length > 0);
 
   const toggleFolder = (ws: string, cur: boolean) => {
     setOverrides((prev) => {
@@ -363,8 +360,8 @@ export function Sidebar({
         {groups.length === 0 ? (
           <div className="tree-empty">{query ? "无匹配结果" : "暂无会话"}</div>
         ) : null}
-        {groups.map(({ key, ws, list, hasOpen, pinned }) => {
-          const expanded = isExpanded(key, hasOpen);
+        {groups.map(({ key, ws, list, pinned }) => {
+          const expanded = isExpanded(key);
           return (
             <div className="tree-folder" key={key || "(none)"}>
               <div
