@@ -1589,8 +1589,8 @@ html[data-platform="macos"] .titlebar .tb-left {
   flex-direction: column;
   gap: 8px;
 }
-.proc-group:not(.is-open) {
-  height: 188px;
+.proc-group.is-clipped {
+  height: 120px;
   overflow: hidden;
 }
 .proc-group-inner {
@@ -1598,7 +1598,7 @@ html[data-platform="macos"] .titlebar .tb-left {
   flex-direction: column;
   gap: 8px;
 }
-.proc-group:not(.is-open)::after {
+.proc-group.is-clipped::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -1629,14 +1629,14 @@ html[data-platform="macos"] .titlebar .tb-left {
     color 0.13s ease,
     transform 0.13s ease;
 }
-.proc-group:not(.is-open) .proc-group-toggle {
+.proc-group.is-clipped .proc-group-toggle {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
   z-index: 1;
 }
-.proc-group:not(.is-open) .proc-group-toggle:hover {
+.proc-group.is-clipped .proc-group-toggle:hover {
   transform: translate(-50%, -50%) scale(1.04);
 }
 .proc-group-toggle:hover {

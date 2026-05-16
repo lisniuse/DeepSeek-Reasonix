@@ -1,4 +1,4 @@
-import { memo, type ReactNode, useState } from "react";
+import { memo, type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { I } from "../icons";
 import { t, useLang } from "../i18n";
 import type { AssistantSegment, ActivePlan, PendingPlan, PendingCheckpoint, PendingRevision, PendingConfirm, PendingChoice, SkillOrigin } from "../App";
@@ -44,24 +44,50 @@ export const UserMsg = memo(function UserMsg({
   );
 });
 
+/** Below this the process is shorter than the peek container's own chrome,
+ *  so folding it would cost more space than it saves — render it as-is. */
+const PROC_PEEK_THRESHOLD_PX = 200;
+
 /** Folds the thinking + tool-call process (everything before the conclusion)
- *  into one fixed-height, gradient-faded container with a single toggle. */
+ *  into a fixed-height, gradient-faded container — but only when the process
+ *  is actually tall enough to be worth hiding. Height is measured (not a card
+ *  count) so intermediate plain-text segments are weighed by their real size. */
 function ProcessGroup({ children }: { children: ReactNode }) {
   useLang();
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [overflows, setOverflows] = useState(false);
   const [expanded, setExpanded] = useState(false);
+
+  // Measure the natural (all-cards-collapsed) height once on mount, and on
+  // window resize for text reflow. Deliberately not a ResizeObserver: if the
+  // user expands a card inside, the group must not snap shut on them.
+  useLayoutEffect(() => {
+    const el = innerRef.current;
+    if (!el) return;
+    const measure = () => setOverflows(el.scrollHeight > PROC_PEEK_THRESHOLD_PX);
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+
+  const clipped = overflows && !expanded;
   return (
-    <div className={expanded ? "proc-group is-open" : "proc-group"}>
-      <div className="proc-group-inner">{children}</div>
-      <button
-        type="button"
-        className="proc-group-toggle"
-        onClick={() => setExpanded((v) => !v)}
-      >
-        <span className="chev">
-          <I.chev size={12} />
-        </span>
-        <span>{expanded ? t("cards.peekCollapse") : t("cards.peekExpand")}</span>
-      </button>
+    <div className={`proc-group${clipped ? " is-clipped" : ""}${expanded ? " is-open" : ""}`}>
+      <div className="proc-group-inner" ref={innerRef}>
+        {children}
+      </div>
+      {overflows ? (
+        <button
+          type="button"
+          className="proc-group-toggle"
+          onClick={() => setExpanded((v) => !v)}
+        >
+          <span className="chev">
+            <I.chev size={12} />
+          </span>
+          <span>{expanded ? t("cards.peekCollapse") : t("cards.peekExpand")}</span>
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -158,6 +184,8 @@ export const AssistantMsg = memo(function AssistantMsg({
       break;
     }
   }
+  // Wrap whenever there's any process before the conclusion; ProcessGroup
+  // itself decides — by measured height — whether folding is worthwhile.
   const grouped = collapseProcess && !pending && conclusionIdx > 0;
   const nodes = segments.map((s, i) => renderSegment(s, i));
 
