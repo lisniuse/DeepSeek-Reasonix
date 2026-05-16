@@ -387,12 +387,14 @@ export type MemGroupKey = "user" | "feedback" | "project" | "reference";
 export type MemEntry = { text: string; meta?: string };
 export type MemGroups = Partial<Record<MemGroupKey, MemEntry[]>>;
 
-const GROUP_LABELS: Record<MemGroupKey, string> = {
-  user: "USER · 用户偏好",
-  feedback: "FEEDBACK · 反馈与纠正",
-  project: "PROJECT · 项目规范",
-  reference: "REFERENCE · 引用资料",
-};
+function groupLabel(key: MemGroupKey): string {
+  switch (key) {
+    case "user": return t("extraCards.memoryUser");
+    case "feedback": return t("extraCards.memoryFeedback");
+    case "project": return t("extraCards.memoryProject");
+    case "reference": return t("extraCards.memoryReference");
+  }
+}
 
 export function MemoryGroups({ data }: { data: MemGroups }) {
   const keys: MemGroupKey[] = ["user", "feedback", "project", "reference"];
@@ -405,7 +407,7 @@ export function MemoryGroups({ data }: { data: MemGroups }) {
           <div key={g}>
             <div className="gh" data-g={g}>
               <span className="sw" />
-              <span>{GROUP_LABELS[g]}</span>
+              <span>{groupLabel(g)}</span>
               <span className="grow" />
               <span className="cnt">{rows.length}</span>
             </div>

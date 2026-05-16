@@ -345,6 +345,11 @@ export const en = {
       exportMd: "Export Markdown",
       clearChat: "Clear conversation",
       settings: "Settings",
+      windowControls: "Window controls",
+      close: "Close",
+      minimize: "Minimize",
+      maximize: "Maximize",
+      restore: "Restore",
     },
     tab: {
       newTabTitle: "New tab ⌘T",
@@ -385,6 +390,7 @@ export const en = {
       install: "Install",
       later: "Later",
     },
+    busyReasoning: "Reasoning",
     exportUserLabel: "You",
     session: {
       new: "{workspace} · New session",
@@ -497,6 +503,17 @@ export const en = {
   extraCards: {
     sessionUsage: "Session usage",
     sessionCost: "Cost {costLabel}",
+    memoryUser: "USER · Preferences",
+    memoryFeedback: "FEEDBACK · Corrections",
+    memoryProject: "PROJECT · Conventions",
+    memoryReference: "REFERENCE · References",
+  },
+  rules: {
+    yoloDesc: "YOLO mode · all tool calls auto-approved",
+    readOnlyDesc: "Read-only tools auto-approved",
+    shellWhitelistDesc: "Shell whitelist commands auto-approved",
+    writeRequiresConfirm: "Writes & unknown shell require confirmation",
+    reviewDesc: "Review mode · every tool call requires confirmation",
   },
   markdown: {
     filePillTitle: "click to open · right-click to copy",

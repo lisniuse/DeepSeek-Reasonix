@@ -357,6 +357,11 @@ export const zhCN: typeof en = {
       exportMd: "导出 Markdown",
       clearChat: "清空对话",
       settings: "设置",
+      windowControls: "窗口控制",
+      close: "关闭",
+      minimize: "最小化",
+      maximize: "最大化",
+      restore: "还原",
     },
     tab: {
       newTabTitle: "新建标签 ⌘T",
@@ -396,6 +401,7 @@ export const zhCN: typeof en = {
       install: "安装",
       later: "稍后",
     },
+    busyReasoning: "推理中",
     exportUserLabel: "你",
     session: {
       new: "{workspace} · 新会话",
@@ -483,6 +489,17 @@ export const zhCN: typeof en = {
   extraCards: {
     sessionUsage: "会话用量",
     sessionCost: "花费 {costLabel}",
+    memoryUser: "USER · 用户偏好",
+    memoryFeedback: "FEEDBACK · 反馈与纠正",
+    memoryProject: "PROJECT · 项目规范",
+    memoryReference: "REFERENCE · 引用资料",
+  },
+  rules: {
+    yoloDesc: "YOLO 模式 · 所有工具调用自动批准",
+    readOnlyDesc: "只读工具自动批准",
+    shellWhitelistDesc: "命中 shell 白名单的命令自动批准",
+    writeRequiresConfirm: "写入与未知 shell 命令需确认",
+    reviewDesc: "Review 模式 · 每个工具调用都需确认",
   },
   markdown: {
     filePillTitle: "点击打开 · 右键复制",

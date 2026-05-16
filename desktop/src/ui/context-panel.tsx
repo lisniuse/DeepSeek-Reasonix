@@ -237,7 +237,7 @@ function CtxMemory({ entries }: { entries: MemoryEntryInfo[] }) {
     <div className="ctx-block">
       <div className="h">
         <span>{t("contextPanel.memoryHeading")}</span>
-        <span className="right">{entries.length === 0 ? "—" : `${entries.length} 项`}</span>
+        <span className="right">{entries.length === 0 ? "—" : t("contextPanel.memoryCount", { n: String(entries.length) })}</span>
       </div>
       {entries.length === 0 ? (
         <div className="ctx-empty">{t("contextPanel.noMemoriesMsg")}</div>
@@ -246,7 +246,7 @@ function CtxMemory({ entries }: { entries: MemoryEntryInfo[] }) {
           {entries.map((m) => (
             <div className="mem-row" key={`${m.scope}/${m.name}`}>
               <span className="scope" data-s={m.scope}>
-                {m.scope === "project" ? "项目" : "全局"}
+                {m.scope === "project" ? t("contextPanel.memoryScopeProject") : t("contextPanel.memoryScopeGlobal")}
               </span>
               <span className="txt">{m.description || m.name}</span>
             </div>
@@ -264,9 +264,9 @@ function CtxRules({ settings }: { settings: Settings | null }) {
       ? [{ p: "*", allow: true, desc: t("contextPanel.yoloModeDesc") }]
       : editMode === "auto"
         ? [
-            { p: "read_file, list_directory, search_files, *", allow: true, desc: "只读工具自动批准" },
-            { p: "run_command (allowlist)", allow: true, desc: "命中 shell 白名单的命令自动批准" },
-            { p: "edit_file, write_file, run_command (其他)", allow: false, desc: "写入与未知 shell 命令需确认" },
+            { p: "read_file, list_directory, search_files, *", allow: true, desc: t("rules.readOnlyDesc") },
+            { p: "run_command (allowlist)", allow: true, desc: t("rules.shellWhitelistDesc") },
+            { p: "edit_file, write_file, run_command (其他)", allow: false, desc: t("rules.writeRequiresConfirm") },
           ]
         : [
             { p: "*", allow: false, desc: t("contextPanel.reviewModeDesc") },

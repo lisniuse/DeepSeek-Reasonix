@@ -1393,7 +1393,7 @@ function TabRuntime({
 
   const elapsed = useElapsed(state.busy);
   const workspaceLabel = state.settings?.workspaceDir
-    ? state.settings.workspaceDir.split(/[\\/]/).pop() || "workspace"
+    ? state.settings.workspaceDir.split(/[\\/]/).pop() || t("sidebar.unnamedWorkspace")
     : "Reasonix";
   const session = (() => {
     const firstUser = state.messages.find((m) => m.kind === "user");
@@ -1701,7 +1701,7 @@ function TabRuntime({
                   state.busy
                     ? state.activeSkill
                       ? `Skill · ${state.activeSkill.name}`
-                      : "Reasoning"
+                      : t("app.busyReasoning")
                     : undefined
                 }
                 busyElapsedMs={elapsed}
@@ -1956,12 +1956,12 @@ function TitleBar({
       {/* left: sidebar toggle + brand */}
       <div className="tb-left">
         {isMac ? (
-          <div className="mac-controls" aria-label="窗口控制">
+          <div className="mac-controls" aria-label={t("app.titlebar.windowControls")}>
             <button
               type="button"
               className="mac-ctrl close"
-              title="关闭"
-              aria-label="关闭"
+              title={t("app.titlebar.close")}
+              aria-label={t("app.titlebar.close")}
               onMouseDown={(e) => {
                 e.stopPropagation();
                 win.close();
@@ -1972,8 +1972,8 @@ function TitleBar({
             <button
               type="button"
               className="mac-ctrl minimize"
-              title="最小化"
-              aria-label="最小化"
+              title={t("app.titlebar.minimize")}
+              aria-label={t("app.titlebar.minimize")}
               onMouseDown={(e) => {
                 e.stopPropagation();
                 win.minimize();
@@ -1984,8 +1984,8 @@ function TitleBar({
             <button
               type="button"
               className="mac-ctrl zoom"
-              title={isMaximized ? "还原" : "最大化"}
-              aria-label={isMaximized ? "还原" : "最大化"}
+              title={isMaximized ? t("app.titlebar.restore") : t("app.titlebar.maximize")}
+              aria-label={isMaximized ? t("app.titlebar.restore") : t("app.titlebar.maximize")}
               onMouseDown={(e) => {
                 e.stopPropagation();
                 win.toggleMaximize();
@@ -2081,7 +2081,7 @@ function TitleBar({
             <button
               type="button"
               className="win-ctrl"
-              title="最小化"
+              title={t("app.titlebar.minimize")}
               onMouseDown={(e) => { e.stopPropagation(); win.minimize(); }}
             >
               <WinMinimize />
@@ -2089,7 +2089,7 @@ function TitleBar({
             <button
               type="button"
               className="win-ctrl"
-              title={isMaximized ? "还原" : "最大化"}
+              title={isMaximized ? t("app.titlebar.restore") : t("app.titlebar.maximize")}
               onMouseDown={(e) => { e.stopPropagation(); win.toggleMaximize(); }}
             >
               {isMaximized ? <WinRestore /> : <WinMaximize />}
@@ -2097,7 +2097,7 @@ function TitleBar({
             <button
               type="button"
               className="win-ctrl close"
-              title="关闭"
+              title={t("app.titlebar.close")}
               onMouseDown={(e) => { e.stopPropagation(); win.close(); }}
             >
               <WinClose />
@@ -2132,7 +2132,7 @@ function MainHead({
 }) {
   useLang();
   const wsLabel = workspaceDir
-    ? workspaceDir.split(/[\\/]/).pop() || "workspace"
+    ? workspaceDir.split(/[\\/]/).pop() || t("sidebar.unnamedWorkspace")
     : t("app.header.noWorkspace");
   return (
     <div className="main-head">
