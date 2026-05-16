@@ -167,6 +167,30 @@ fn git_status(root: String) -> Result<Vec<GitStatusEntry>, String> {
 }
 
 #[tauri::command]
+fn read_global_memory() -> Result<String, String> {
+    let home = std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .map_err(|_| "HOME/USERPROFILE not set".to_string())?;
+    let path = Path::new(&home).join(".reasonix").join("REASONIX.md");
+    if !path.exists() {
+        return Ok(String::new());
+    }
+    std::fs::read_to_string(&path).map_err(|e| format!("read: {e}"))
+}
+
+#[tauri::command]
+fn write_global_memory(content: String) -> Result<(), String> {
+    let home = std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .map_err(|_| "HOME/USERPROFILE not set".to_string())?;
+    let dir = Path::new(&home).join(".reasonix");
+    std::fs::create_dir_all(&dir).map_err(|e| format!("mkdir: {e}"))?;
+    let path = dir.join("REASONIX.md");
+    std::fs::write(&path, content).map_err(|e| format!("write: {e}"))?;
+    Ok(())
+}
+
+#[tauri::command]
 fn open_in_editor(command: String, path: String, line: Option<u32>) -> Result<(), String> {
     use std::process::{Command, Stdio};
     let trimmed = command.trim();
@@ -212,6 +236,7 @@ fn main() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .manage(RpcState::default())
         .invoke_handler(tauri::generate_handler![
             rpc_spawn,
@@ -219,7 +244,9 @@ fn main() {
             rpc_kill,
             open_in_editor,
             list_workspace_tree,
-            git_status
+            git_status,
+            read_global_memory,
+            write_global_memory
         ])
         .setup(|app| {
             use tauri::Manager;

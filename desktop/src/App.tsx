@@ -1781,25 +1781,24 @@ function TabRuntime({
             const norm = (p: string) => p.replace(/\\/g, "/").replace(/\/$/, "").toLowerCase();
             const npath = norm(path);
             const sessionsInWs = state.sessions.filter((s) => norm(s.workspace) === npath);
+            // Guard: if a tab is already open for this workspace focus it,
+            // regardless of whether sessions exist on disk. This prevents
+            // accidentally creating a duplicate tab on restart while the
+            // auto-restored session is still loading.
+            const openTab = tabsList.find((t) => t.workspaceDir && norm(t.workspaceDir) === npath);
+            if (openTab) {
+              setActiveTabId(openTab.id);
+              return;
+            }
             if (sessionsInWs.length > 0) {
               // Workspace has sessions → load the most recent one.
-              // The kernel checks by session name: if a tab already has it open it
-              // emits $tab_focus; otherwise it creates a new tab and loads the session.
               sessionsInWs.sort((a, b) => new Date(b.mtime).getTime() - new Date(a.mtime).getTime());
               const name = sessionsInWs[0]!.name;
               markPendingLoad(name);
               sendRpc({ cmd: "session_load", name });
             } else {
-              // No sessions yet for this workspace.
-              // Guard: if a tab is already open for this workspace focus it (avoids
-              // creating a second empty tab on a double-click / stale state).
-              const openTab = tabsList.find((t) => t.workspaceDir && norm(t.workspaceDir) === npath);
-              if (openTab) {
-                setActiveTabId(openTab.id);
-              } else {
-                // Fresh workspace → saveSettings triggers tab + session creation via kernel.
-                saveSettings({ workspaceDir: path });
-              }
+              // Fresh workspace → saveSettings triggers tab + session creation via kernel.
+              saveSettings({ workspaceDir: path });
             }
           }}
           onBrowse={pickWorkspace}

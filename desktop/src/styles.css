@@ -5459,3 +5459,88 @@ html[data-platform="macos"] .splash {
   background: var(--accent-soft);
   color: var(--accent);
 }
+
+.global-memory-editor {
+  width: 100%;
+  min-height: 240px;
+  padding: 12px 14px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--fg);
+  font-family: "Geist Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  resize: vertical;
+  tab-size: 2;
+}
+.global-memory-editor::placeholder {
+  color: var(--muted-2);
+}
+.global-memory-editor:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.global-memory-editor:disabled {
+  opacity: 0.5;
+}
+
+/* ============================================================
+   ANIMATIONS & TRANSITIONS
+   ============================================================ */
+
+.btn {
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.tree-session .ts-dot {
+  transition: background 0.15s ease;
+}
+
+.tree-session[data-active="true"]::before {
+  transition: opacity 0.2s ease;
+}
+
+.settings-side .row {
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.settings-main {
+  animation: fade-in 0.2s ease-out;
+}
+
+.tool-card-head {
+  transition: background 0.15s ease;
+}
+
+.tool-card-body {
+  animation: slide-down 0.18s ease-out;
+}
+
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.msg-approval {
+  animation: card-in 0.2s ease-out;
+}
+
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.toast {
+  animation: toast-rise 0.25s ease-out;
+}
+
+@keyframes toast-fall {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(12px); }
+}
+
+.statusbar .seg {
+  transition: background 0.12s ease, color 0.12s ease;
+}
