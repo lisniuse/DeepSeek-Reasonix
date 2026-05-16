@@ -1774,20 +1774,23 @@ function TabRuntime({
           current={state.settings?.workspaceDir}
           anchor={wdAnchor}
           onPick={(path) => {
-            saveSettings({ workspaceDir: path });
-            // If the picked workspace already has sessions in the sidebar,
-            // jump to the first session in that folder. Otherwise create
-            // a fresh session for the new workspace.
+            // normalize for cross-platform comparison (Windows drive case / sep diffs)
             const norm = (p: string) => p.replace(/\\/g, "/").replace(/\/$/, "").toLowerCase();
             const npath = norm(path);
             const sessionsInWs = state.sessions.filter((s) => norm(s.workspace) === npath);
             if (sessionsInWs.length > 0) {
+              // Workspace already has sessions → jump to the most recent one.
+              // session_load creates the tab with the correct workspaceDir,
+              // so we don't need a separate saveSettings / tab_open call.
               sessionsInWs.sort((a, b) => new Date(b.mtime).getTime() - new Date(a.mtime).getTime());
               const name = sessionsInWs[0]!.name;
               markPendingLoad(name);
               sendRpc({ cmd: "session_load", name });
             } else {
-              onNewTab(path);
+              // Fresh workspace → saveSettings triggers tab creation via kernel.
+              // Only call saveSettings (not onNewTab), because the kernel's
+              // settings_save handler already calls createTabSkeleton + bootstrapTab.
+              saveSettings({ workspaceDir: path });
             }
           }}
           onBrowse={pickWorkspace}
