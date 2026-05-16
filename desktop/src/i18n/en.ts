@@ -234,9 +234,13 @@ export const en = {
     skillsEmpty:
       "No skills available. Create SKILL.md under ~/.reasonix/skills/ or .reasonix/skills/ in your project root.",
     // Memory
-    memorySection: "Long-term memory",
+    memorySection: "Global memory",
     memoryDesc:
-      "Current version relies on built-in CLAUDE.md / AGENTS.md injection. Project-level memory is maintained at the kernel level.",
+      "Edit ~/.reasonix/REASONIX.md — this file is appended to the system prompt in every session. Project-level memory is managed through REASONIX.md in the project root and injected at the kernel level.",
+    memoryPath: "~/.reasonix/REASONIX.md",
+    memorySave: "Save",
+    memorySaved: "Saved — takes effect on next /new or relaunch.",
+    memoryLoadError: "Failed to load global memory.",
     // Rules
     appMode: "Application mode",
     ruleAutoApprovalSection: "Auto-approve commands",

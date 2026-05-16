@@ -225,8 +225,12 @@ export const zhCN: typeof en = {
     skillsLoaded: "已加载 · {count} · 通过 / 命令调用",
     skillsEmpty:
       "没有可用技能。可在 ~/.reasonix/skills/ 或 项目根/.reasonix/skills/ 下创建 SKILL.md。",
-    memorySection: "长期记忆",
-    memoryDesc: "当前版本依赖内置 CLAUDE.md / AGENTS.md 注入；项目级别记忆在内核侧维护。",
+    memorySection: "全局记忆",
+    memoryDesc: "编辑 ~/.reasonix/REASONIX.md — 该文件会被追加到每次会话的系统提示词中。项目级别记忆通过项目根目录的 REASONIX.md 维护，在内核侧注入。",
+    memoryPath: "~/.reasonix/REASONIX.md",
+    memorySave: "保存",
+    memorySaved: "已保存 — 在下次 /new 或重启后生效。",
+    memoryLoadError: "加载全局记忆失败。",
     appMode: "应用模式",
     ruleAutoApprovalSection: "命令自动批准",
     ruleAutoApprovalHint:
