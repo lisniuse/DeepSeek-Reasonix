@@ -1481,6 +1481,7 @@ function TabRuntime({
         <Sidebar
           sessions={state.sessions}
           openTabs={tabsList}
+          recentWorkspaces={state.settings?.recentWorkspaces ?? []}
           activeTabId={activeTabId}
           activeSession={state.currentSession}
           onActivateTab={setActiveTabId}

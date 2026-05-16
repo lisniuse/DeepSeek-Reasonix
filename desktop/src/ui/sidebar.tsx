@@ -86,6 +86,7 @@ function saveMap(key: string, m: Map<string, string>) {
 export function Sidebar({
   sessions,
   openTabs,
+  recentWorkspaces,
   activeTabId,
   activeSession,
   onActivateTab,
@@ -101,6 +102,7 @@ export function Sidebar({
 }: {
   sessions: SessionInfo[];
   openTabs: OpenTab[];
+  recentWorkspaces: string[];
   activeTabId: string;
   activeSession?: string;
   onActivateTab: (id: string) => void;
@@ -217,6 +219,16 @@ export function Sidebar({
       }
     }
 
+    // Also surface workspaces from recentWorkspaces that have no sessions yet,
+    // so the sidebar stays consistent with the workdir pop panel.
+    for (const p of recentWorkspaces) {
+      const ws = normWs(p);
+      const key = ws.toLowerCase();
+      if (!byWorkspace.has(key)) {
+        byWorkspace.set(key, { display: ws, list: [] });
+      }
+    }
+
     const result = [...byWorkspace.entries()].map(([key, { display, list }]) => {
       list.sort((a, b) => {
         const ap = pinnedSessions.has(a.name) ? 0 : 1;
@@ -241,7 +253,7 @@ export function Sidebar({
     });
 
     return result.filter((g) => !hiddenWs.has(g.key));
-  }, [sessions, openTabs, query, hiddenWs, pinnedWs, pinnedSessions, customTitles]);
+  }, [sessions, openTabs, recentWorkspaces, query, hiddenWs, pinnedWs, pinnedSessions, customTitles]);
 
   useEffect(() => {
     if (!menu) return;
