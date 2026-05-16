@@ -1,4 +1,4 @@
-﻿import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
@@ -1872,6 +1872,7 @@ function TitleBar({
   const [menuOpen, setMenuOpen] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const moreWrapRef = useRef<HTMLDivElement>(null);
+  const isMac = document.documentElement.dataset.platform === "macos";
 
   useEffect(() => {
     const win = getCurrentWindow();
@@ -1899,6 +1900,46 @@ function TitleBar({
     <header className="titlebar">
       {/* left: sidebar toggle + brand */}
       <div className="tb-left">
+        {isMac ? (
+          <div className="mac-controls" aria-label="窗口控制">
+            <button
+              type="button"
+              className="mac-ctrl close"
+              title="关闭"
+              aria-label="关闭"
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                win.close();
+              }}
+            >
+              <WinClose />
+            </button>
+            <button
+              type="button"
+              className="mac-ctrl minimize"
+              title="最小化"
+              aria-label="最小化"
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                win.minimize();
+              }}
+            >
+              <WinMinimize />
+            </button>
+            <button
+              type="button"
+              className="mac-ctrl zoom"
+              title={isMaximized ? "还原" : "最大化"}
+              aria-label={isMaximized ? "还原" : "最大化"}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                win.toggleMaximize();
+              }}
+            >
+              {isMaximized ? <WinRestore /> : <WinMaximize />}
+            </button>
+          </div>
+        ) : null}
         <button
           type="button"
           className="iconbtn"
@@ -1908,20 +1949,22 @@ function TitleBar({
         >
           <I.panel_l size={14} />
         </button>
-        <div className="brand">
-          <span className="mark" />
-          <span className="brand-name">Reasonix</span>
-        </div>
-        {session && (
-          <div className="crumbs">
-            <span className="sep">/</span>
-            <span className="cur">{model ?? "—"}</span>
+        <div className="tb-meta" data-tauri-drag-region>
+          <div className="brand" data-tauri-drag-region>
+            <span className="mark" />
+            <span className="brand-name">Reasonix</span>
           </div>
-        )}
+          {session && (
+            <div className="crumbs" data-tauri-drag-region>
+              <span className="sep">/</span>
+              <span className="cur">{model ?? "—"}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* center: drag region */}
-      <span className="grow" />
+      <span className="grow" data-tauri-drag-region />
 
       {/* right: panel toggles + more + window controls */}
       <div className="tb-right">
@@ -1978,32 +2021,34 @@ function TitleBar({
         </div>
 
         {/* window controls — use onMouseDown+stopPropagation so the drag region doesn't swallow the event */}
-        <div className="win-controls">
-          <button
-            type="button"
-            className="win-ctrl"
-            title="最小化"
-            onMouseDown={(e) => { e.stopPropagation(); win.minimize(); }}
-          >
-            <WinMinimize />
-          </button>
-          <button
-            type="button"
-            className="win-ctrl"
-            title={isMaximized ? "还原" : "最大化"}
-            onMouseDown={(e) => { e.stopPropagation(); win.toggleMaximize(); }}
-          >
-            {isMaximized ? <WinRestore /> : <WinMaximize />}
-          </button>
-          <button
-            type="button"
-            className="win-ctrl close"
-            title="关闭"
-            onMouseDown={(e) => { e.stopPropagation(); win.close(); }}
-          >
-            <WinClose />
-          </button>
-        </div>
+        {isMac ? null : (
+          <div className="win-controls">
+            <button
+              type="button"
+              className="win-ctrl"
+              title="最小化"
+              onMouseDown={(e) => { e.stopPropagation(); win.minimize(); }}
+            >
+              <WinMinimize />
+            </button>
+            <button
+              type="button"
+              className="win-ctrl"
+              title={isMaximized ? "还原" : "最大化"}
+              onMouseDown={(e) => { e.stopPropagation(); win.toggleMaximize(); }}
+            >
+              {isMaximized ? <WinRestore /> : <WinMaximize />}
+            </button>
+            <button
+              type="button"
+              className="win-ctrl close"
+              title="关闭"
+              onMouseDown={(e) => { e.stopPropagation(); win.close(); }}
+            >
+              <WinClose />
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );
@@ -2171,55 +2216,78 @@ function NeedsSetupView({
 }) {
   useLang();
   const [key, setKey] = useState("");
+  const hasWorkspace = Boolean(workspaceDir);
   return (
-    <div
-      style={{
-        flex: 1,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 24,
-        gap: 18,
-      }}
-    >
-      <div style={{ fontSize: 18, fontWeight: 600 }}>{t("app.setup.welcome")}</div>
-      <div style={{ fontSize: 14, color: "var(--muted)", maxWidth: 400, textAlign: "center" }}>
-        {t("app.setup.description")}
-      </div>
-      <div
-        style={{
-          width: "min(420px, 100%)",
-          display: "flex",
-          flexDirection: "column",
-          gap: 10,
-        }}
-      >
-        <div className="setting-row" style={{ borderBottom: "none" }}>
-          <div className="l">
-            <div className="n">{t("app.setup.workspace")}</div>
-            <div className="h">{workspaceDir || t("app.setup.notSelected")}</div>
+    <div className="setup-screen">
+      <div className="setup-shell">
+        <div className="setup-hero">
+          <div className="setup-badge" aria-hidden="true">
+            <span className="setup-mark" />
+            <span>Reasonix</span>
           </div>
-          <button type="button" className="btn" onClick={onPickWorkspace}>
-            {t("app.setup.choose")}
-          </button>
+          <div className="setup-title">{t("app.setup.welcome")}</div>
+          <div className="setup-description">{t("app.setup.description")}</div>
         </div>
-        <input
-          className="field mono"
-          type="password"
-          value={key}
-          onChange={(e) => setKey(e.target.value)}
-          placeholder="sk-…"
-          style={{ width: "100%" }}
-        />
-        <button
-          type="button"
-          className="btn primary"
-          disabled={!key.trim()}
-          onClick={() => onSubmit(key.trim())}
-        >
-          {t("app.setup.saveAndStart")}
-        </button>
+
+        <div className="setup-card">
+          <div className="setup-overview">
+            <div className="setup-info">
+              <span className="setup-info-icon">
+                <I.folder size={15} />
+              </span>
+              <div className="setup-info-body">
+                <div className="setup-info-label">{t("app.setup.workspace")}</div>
+                <div className="setup-info-value">{workspaceDir || t("app.setup.notSelected")}</div>
+              </div>
+            </div>
+
+            <div className="setup-info">
+              <span className="setup-info-icon">
+                <I.shield size={15} />
+              </span>
+              <div className="setup-info-body">
+                <div className="setup-info-label">DeepSeek API Key</div>
+                <div className="setup-info-value">sk-...</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="setup-form">
+            <div className="setup-field">
+              <div className="setup-field-label">{t("app.setup.workspace")}</div>
+              <div className="setup-workspace-row">
+                <div className="setup-workspace-value" data-empty={hasWorkspace ? undefined : "true"}>
+                  <I.folder size={15} />
+                  <span>{workspaceDir || t("app.setup.notSelected")}</span>
+                </div>
+                <button type="button" className="btn setup-choose-btn" onClick={onPickWorkspace}>
+                  {t("app.setup.choose")}
+                </button>
+              </div>
+            </div>
+
+            <div className="setup-field">
+              <div className="setup-field-label">DeepSeek API Key</div>
+              <input
+                className="field mono setup-key-input"
+                type="password"
+                value={key}
+                onChange={(e) => setKey(e.target.value)}
+                placeholder="sk-..."
+              />
+            </div>
+
+            <button
+              type="button"
+              className="btn primary setup-submit-btn"
+              disabled={!key.trim()}
+              onClick={() => onSubmit(key.trim())}
+            >
+              <I.check size={15} />
+              {t("app.setup.saveAndStart")}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

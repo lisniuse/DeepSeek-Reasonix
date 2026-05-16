@@ -18,6 +18,10 @@ if (isTheme(stored)) {
   document.documentElement.dataset.theme = stored;
 }
 
+const platform = /Mac|macOS/i.test(navigator.userAgent) ? "macos" : "default";
+document.documentElement.dataset.platform = platform;
+document.body.dataset.platform = platform;
+
 const host = document.getElementById("root");
 if (!host) throw new Error("#root missing");
 
