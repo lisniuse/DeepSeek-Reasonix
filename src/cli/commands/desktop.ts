@@ -1223,11 +1223,6 @@ export async function desktopCommand(opts: DesktopOptions): Promise<void> {
     for (const t of tabs.values()) emit({ type: "$sessions", items }, t.id);
   }
 
-  /** Fire the full open sequence for a freshly created tab. Disk-only events
-   *  go out immediately so the UI shell paints; the heavy work (semantic
-   *  bootstrap, MCP probes, runtime construction) runs in initTabToolset and
-   *  fires `$ready` when done — until then `state.ready` keeps the composer
-   *  disabled so users can't send before the runtime exists. */
   function bootstrapTab(tab: Tab): void {
     emit({ type: "$tab_opened", workspaceDir: tab.rootDir, session: tab.currentSession }, tab.id);
     broadcastSessions();
