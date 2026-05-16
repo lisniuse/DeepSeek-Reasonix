@@ -61,35 +61,35 @@ body[data-drag-over="1"]::after {
 
 :root,
 [data-theme="dark"] {
-  --bg: oklch(16% 0.006 255);
-  --bg-2: oklch(19% 0.006 255);
-  --panel: oklch(20% 0.007 255);
-  --panel-2: oklch(23% 0.008 255);
-  --card: oklch(22% 0.008 255);
-  --card-hover: oklch(25% 0.009 255);
-  --border: oklch(30% 0.01 255);
-  --border-strong: oklch(38% 0.012 255);
-  --fg: oklch(95% 0.005 255);
-  --fg-2: oklch(80% 0.006 255);
-  --muted: oklch(62% 0.008 255);
-  --muted-2: oklch(48% 0.008 255);
+  --bg: oklch(17% 0.005 280);
+  --bg-2: oklch(20% 0.006 275);
+  --panel: oklch(21.5% 0.007 275);
+  --panel-2: oklch(24.5% 0.008 275);
+  --card: oklch(23.5% 0.007 275);
+  --card-hover: oklch(26.5% 0.008 275);
+  --border: oklch(30% 0.008 275);
+  --border-strong: oklch(38% 0.01 275);
+  --fg: oklch(96% 0.004 280);
+  --fg-2: oklch(81% 0.005 280);
+  --muted: oklch(63% 0.006 280);
+  --muted-2: oklch(49% 0.006 280);
 
-  --accent: oklch(70% 0.14 255);
-  --accent-soft: oklch(70% 0.14 255 / 0.14);
-  --accent-strong: oklch(74% 0.16 255);
+  --accent: oklch(68% 0.16 38);
+  --accent-soft: oklch(68% 0.16 38 / 0.15);
+  --accent-strong: oklch(72% 0.18 36);
 
-  --success: oklch(72% 0.14 155);
-  --success-soft: oklch(72% 0.14 155 / 0.14);
-  --warning: oklch(78% 0.14 75);
-  --warning-soft: oklch(78% 0.14 75 / 0.16);
-  --danger: oklch(68% 0.18 22);
-  --danger-soft: oklch(68% 0.18 22 / 0.16);
-  --violet: oklch(72% 0.14 305);
-  --violet-soft: oklch(72% 0.14 305 / 0.16);
+  --success: oklch(70% 0.14 145);
+  --success-soft: oklch(70% 0.14 145 / 0.14);
+  --warning: oklch(78% 0.14 85);
+  --warning-soft: oklch(78% 0.14 85 / 0.16);
+  --danger: oklch(66% 0.18 25);
+  --danger-soft: oklch(66% 0.18 25 / 0.16);
+  --violet: oklch(72% 0.14 295);
+  --violet-soft: oklch(72% 0.14 295 / 0.16);
 
-  --shadow-sm: 0 1px 0 oklch(0% 0 0 / 0.3);
-  --shadow-md: 0 8px 24px -8px oklch(0% 0 0 / 0.45);
-  --shadow-lg: 0 24px 60px -16px oklch(0% 0 0 / 0.6);
+  --shadow-sm: 0 1px 0 oklch(0% 0 0 / 0.35);
+  --shadow-md: 0 8px 24px -8px oklch(0% 0 0 / 0.5);
+  --shadow-lg: 0 24px 60px -16px oklch(0% 0 0 / 0.65);
   --radius: 8px;
   --radius-lg: 12px;
 }
@@ -3923,8 +3923,8 @@ html[data-platform="macos"] .titlebar .tb-left {
   --tone-err-soft:  oklch(68% 0.20 25 / 0.14);
   --tone-info:      oklch(70% 0.13 230);
   --tone-info-soft: oklch(70% 0.13 230 / 0.14);
-  --tone-brand:     oklch(66% 0.18 258);
-  --tone-brand-soft:oklch(66% 0.18 258 / 0.14);
+  --tone-brand:     oklch(66% 0.18 38);
+  --tone-brand-soft:oklch(66% 0.18 38 / 0.14);
   --tone-accent:    var(--accent);
   --tone-accent-soft: var(--accent-soft);
   --tone-ghost:     oklch(60% 0.005 250);
