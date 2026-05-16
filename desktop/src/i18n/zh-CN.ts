@@ -44,6 +44,7 @@ export const zhCN: typeof en = {
     searchCommands: "搜索命令…",
     recent: "最近",
     noSessions: "还没有会话",
+    sessionLoading: "加载会话中…",
     wallet: "余额",
     footHint: "cache-first agent",
   },

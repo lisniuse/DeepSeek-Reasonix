@@ -42,6 +42,7 @@ export const en = {
     searchCommands: "Search commands…",
     recent: "Recent",
     noSessions: "No sessions yet",
+    sessionLoading: "Loading session…",
     wallet: "wallet",
     footHint: "cache-first agent",
   },

@@ -893,7 +893,7 @@ interface TabRuntimeProps {
   onToggleSide: () => void;
   onToggleCtx: () => void;
   onToggleCurrency: () => void;
-  tabsList: { id: string; workspaceDir?: string; sessionName?: string; busy?: boolean }[];
+  tabsList: { id: string; workspaceDir?: string; sessionName?: string; busy?: boolean; loadingSession?: boolean }[];
   onBusyChange: (busy: boolean) => void;
   activeTabId: string;
   setActiveTabId: (id: string) => void;
@@ -965,7 +965,6 @@ function TabRuntime({
   useLang();
   const [draft, setDraft] = useState("");
   const [toast, setToast] = useState<{ msg: string; yolo?: boolean } | null>(null);
-  const [splashOn, setSplashOn] = useState<boolean>(() => shouldShowSplash());
   const [wdOpen, setWdOpen] = useState(false);
   const [wdAnchor, setWdAnchor] = useState<
     { top?: number; bottom?: number; left: number } | undefined
@@ -1543,7 +1542,11 @@ function TabRuntime({
                     </>
                   ) : null}
 
-                  {state.messages.length === 0 ? (
+                  {state.messages.length === 0 && tabsList.find((t) => t.id === tabId)?.loadingSession ? (
+                    <div style={{ padding: 24, textAlign: "center", color: "var(--muted)" }}>
+                      {t("sidebar.sessionLoading")}
+                    </div>
+                  ) : state.messages.length === 0 ? (
                     <EmptyState
                       onPick={(t) => send(t)}
                       workspaceDir={state.settings?.workspaceDir}
@@ -1805,8 +1808,6 @@ function TabRuntime({
         />
 
         <Toast message={toast} />
-
-        {splashOn ? <Splash onDone={() => setSplashOn(false)} /> : null}
       </div>
     </WorkspaceProvider>
   );
@@ -2339,9 +2340,10 @@ function UpdateBanner({
   );
 }
 
-type TabMeta = { id: string; workspaceDir?: string; sessionName?: string; busy?: boolean };
+type TabMeta = { id: string; workspaceDir?: string; sessionName?: string; busy?: boolean; loadingSession?: boolean };
 
 export function App() {
+  const [splashOn, setSplashOn] = useState<boolean>(() => shouldShowSplash());
   const [tabs, setTabs] = useState<TabMeta[]>([]);
   const [activeTabId, setActiveTabId] = useState<string>("");
   const dispatchersRef = useRef<Map<string, TabDispatcher>>(new Map());
@@ -2508,7 +2510,7 @@ export function App() {
               setTabs((prev) =>
                 prev.some((t) => t.id === tabId)
                   ? prev
-                  : [...prev, { id: tabId, workspaceDir: ev.workspaceDir, sessionName: ev.session }],
+                  : [...prev, { id: tabId, workspaceDir: ev.workspaceDir, sessionName: ev.session, loadingSession: !!ev.session }],
               );
               setActiveTabId(tabId);
               // First tab on startup → override with our saved session (more reliable than kernel's own restore)
@@ -2563,7 +2565,7 @@ export function App() {
             // Keep tabs[].sessionName in sync so lastSession saves the correct name
             if (ev.type === "$session_loaded" && tabId) {
               setTabs((prev) =>
-                prev.map((t) => (t.id === tabId ? { ...t, sessionName: ev.name } : t)),
+                prev.map((t) => (t.id === tabId ? { ...t, sessionName: ev.name, loadingSession: false } : t)),
               );
             }
 
@@ -2699,6 +2701,7 @@ export function App() {
 
   return (
     <>
+      {splashOn ? <Splash onDone={() => setSplashOn(false)} /> : null}
       {tabs.map((t) => (
         <TabRuntime
           key={t.id}
