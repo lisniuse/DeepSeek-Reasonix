@@ -1,5 +1,5 @@
 import { openPath } from "@tauri-apps/plugin-opener";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { SessionInfo } from "../App";
 import { I } from "../icons";
 
@@ -83,6 +83,27 @@ function saveMap(key: string, m: Map<string, string>) {
   localStorage.setItem(key, JSON.stringify(Object.fromEntries(m)));
 }
 
+// Per-tab TabRuntime means there is one Sidebar instance per open tab. Folder
+// collapse state must be shared across them — a module-level store keeps every
+// instance in sync. localStorage alone can't: same-document writes don't fire
+// the `storage` event, so sibling instances would never see each other's edits.
+let collapsedWsValue = loadSet("reasonix.collapsedWorkspaces");
+const collapsedWsListeners = new Set<() => void>();
+function subscribeCollapsedWs(cb: () => void): () => void {
+  collapsedWsListeners.add(cb);
+  return () => {
+    collapsedWsListeners.delete(cb);
+  };
+}
+function getCollapsedWs(): Set<string> {
+  return collapsedWsValue;
+}
+function setCollapsedWs(next: Set<string>): void {
+  collapsedWsValue = next;
+  saveSet("reasonix.collapsedWorkspaces", next);
+  for (const cb of collapsedWsListeners) cb();
+}
+
 export function Sidebar({
   sessions,
   openTabs,
@@ -119,9 +140,7 @@ export function Sidebar({
   onOpenCommands: () => void;
 }) {
   const [query, setQuery] = useState("");
-  const [collapsedWs, setCollapsedWs] = useState<Set<string>>(
-    () => loadSet("reasonix.collapsedWorkspaces"),
-  );
+  const collapsedWs = useSyncExternalStore(subscribeCollapsedWs, getCollapsedWs);
   const [menu, setMenu] = useState<SessionMenuState | null>(null);
   const [folderMenu, setFolderMenu] = useState<FolderMenuState | null>(null);
   const [renaming, setRenaming] = useState<{ name: string; value: string } | null>(null);
@@ -312,13 +331,10 @@ export function Sidebar({
   const isExpanded = (key: string) => !collapsedWs.has(key) || query.trim().length > 0;
 
   const toggleFolder = (key: string, expanded: boolean) => {
-    setCollapsedWs((prev) => {
-      const next = new Set(prev);
-      if (expanded) next.add(key);
-      else next.delete(key);
-      saveSet("reasonix.collapsedWorkspaces", next);
-      return next;
-    });
+    const next = new Set(getCollapsedWs());
+    if (expanded) next.add(key);
+    else next.delete(key);
+    setCollapsedWs(next);
   };
 
   return (
