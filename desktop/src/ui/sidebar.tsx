@@ -196,37 +196,42 @@ export function Sidebar({
     }
 
     const q = query.trim().toLowerCase();
-    const byWorkspace = new Map<string, { display: string; list: TreeSession[] }>();
-    for (const s of bySession.values()) {
-      const displayTitle = prettyName(s.name, s.summary, customTitles.get(s.name));
-      if (q && !displayTitle.toLowerCase().includes(q) && !s.name.toLowerCase().includes(q)) continue;
-      const ws = s.workspace || "";
-      const key = ws.toLowerCase();
-      const g = byWorkspace.get(key);
-      if (g) g.list.push(s);
-      else byWorkspace.set(key, { display: ws, list: [s] });
+
+    // Build a canonical set of workspace folders from recentWorkspaces (the
+    // same source the workdir pop uses) so both panels stay in sync. Then
+    // distribute sessions into those folders. Workspaces that only appear
+    // via sessions (not in recent) are also included so nothing is lost.
+    const wsSet = new Map<string, string>(); // key → display name
+    for (const p of recentWorkspaces) {
+      const ws = normWs(p);
+      wsSet.set(ws.toLowerCase(), ws);
     }
 
-    // Keep workspace folders visible even when all their sessions are deleted,
-    // as long as there is an open tab still pointing to that directory.
+    // Add session workspaces that aren't already in the set.
+    for (const s of bySession.values()) {
+      const ws = s.workspace || "";
+      const key = ws.toLowerCase();
+      if (!wsSet.has(key)) wsSet.set(key, ws);
+    }
+    // Add open-tab workspaces.
     for (const t of openTabs) {
       if (t.workspaceDir) {
         const ws = normWs(t.workspaceDir);
         const key = ws.toLowerCase();
-        if (!byWorkspace.has(key)) {
-          byWorkspace.set(key, { display: ws, list: [] });
-        }
+        if (!wsSet.has(key)) wsSet.set(key, ws);
       }
     }
 
-    // Also surface workspaces from recentWorkspaces that have no sessions yet,
-    // so the sidebar stays consistent with the workdir pop panel.
-    for (const p of recentWorkspaces) {
-      const ws = normWs(p);
-      const key = ws.toLowerCase();
-      if (!byWorkspace.has(key)) {
-        byWorkspace.set(key, { display: ws, list: [] });
-      }
+    const byWorkspace = new Map<string, { display: string; list: TreeSession[] }>();
+    for (const [key, display] of wsSet) {
+      byWorkspace.set(key, { display, list: [] });
+    }
+    for (const s of bySession.values()) {
+      const displayTitle = prettyName(s.name, s.summary, customTitles.get(s.name));
+      if (q && !displayTitle.toLowerCase().includes(q) && !s.name.toLowerCase().includes(q)) continue;
+      const key = (s.workspace || "").toLowerCase();
+      const g = byWorkspace.get(key);
+      if (g) g.list.push(s);
     }
 
     const result = [...byWorkspace.entries()].map(([key, { display, list }]) => {
@@ -252,7 +257,12 @@ export function Sidebar({
       return Date.parse(b.list[0]?.mtime ?? "0") - Date.parse(a.list[0]?.mtime ?? "0");
     });
 
-    return result.filter((g) => !hiddenWs.has(g.key));
+    // Hide hidden workspaces, and hide empty folders when searching
+    return result.filter((g) => {
+      if (hiddenWs.has(g.key)) return false;
+      if (q && g.list.length === 0) return false;
+      return true;
+    });
   }, [sessions, openTabs, recentWorkspaces, query, hiddenWs, pinnedWs, pinnedSessions, customTitles]);
 
   useEffect(() => {
