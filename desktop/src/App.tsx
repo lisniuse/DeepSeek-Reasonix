@@ -2585,7 +2585,12 @@ export function App() {
                 pendingLoadNames.current.add(lastSession);
                 setTimeout(() => {
                   invoke("rpc_send", {
-                    line: JSON.stringify({ tabId, cmd: "session_load", name: lastSession }),
+                    line: JSON.stringify({
+                      tabId,
+                      cmd: "session_load",
+                      name: lastSession,
+                      discardTabId: tabId,
+                    }),
                   }).catch(() => {});
                 }, 50);
               }

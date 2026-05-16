@@ -89,7 +89,7 @@ type InMessage = { tabId?: string } & (
   | { cmd: "revision_response"; id: number; response: RevisionVerdict }
   | { cmd: "session_list" }
   | { cmd: "session_delete"; name: string }
-  | { cmd: "session_load"; name: string }
+  | { cmd: "session_load"; name: string; discardTabId?: string }
   | { cmd: "new_chat" }
   | { cmd: "setup_save_key"; key: string }
   | { cmd: "settings_get" }
@@ -1224,6 +1224,20 @@ export async function desktopCommand(opts: DesktopOptions): Promise<void> {
     for (const t of tabs.values()) emit({ type: "$sessions", items }, t.id);
   }
 
+  /** Auto-restore loads the remembered session into a new tab, orphaning the
+   *  startup tab and its empty minted session — which would otherwise pile up in
+   *  the sidebar on every relaunch. Only discards a session with no messages. */
+  function discardEmptyTab(tabId: string): void {
+    const doomed = tabs.get(tabId);
+    if (!doomed) return;
+    const orphan = doomed.currentSession;
+    if (orphan && loadSessionMessages(orphan).length > 0) return;
+    void closeTab(doomed).then(() => {
+      if (orphan) deleteSession(orphan);
+      broadcastSessions();
+    });
+  }
+
   function bootstrapTab(tab: Tab): void {
     emit({ type: "$tab_opened", workspaceDir: tab.rootDir, session: tab.currentSession }, tab.id);
     broadcastSessions();
@@ -1454,6 +1468,7 @@ export async function desktopCommand(opts: DesktopOptions): Promise<void> {
       const already = [...tabs.values()].find((t) => t.currentSession === msg.name);
       if (already) {
         emit({ type: "$tab_focus" }, already.id);
+        if (msg.discardTabId) discardEmptyTab(msg.discardTabId);
         return;
       }
       try {
@@ -1474,6 +1489,7 @@ export async function desktopCommand(opts: DesktopOptions): Promise<void> {
           },
           newTab.id,
         );
+        if (msg.discardTabId) discardEmptyTab(msg.discardTabId);
       } catch (err) {
         emit({ type: "$error", message: `session_load failed: ${(err as Error).message}` });
       }
