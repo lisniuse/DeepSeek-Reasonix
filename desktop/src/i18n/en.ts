@@ -107,6 +107,11 @@ export const en = {
     budget: "Budget cap",
     budgetHint: "USD per session. Empty = no cap.",
     budgetPlaceholder: "no cap",
+    autoExpandCards: "Auto-expand thinking & tools",
+    autoExpandCardsHint:
+      "Expand reasoning and tool-call cards by default instead of collapsing them.",
+    autoExpandOn: "on",
+    autoExpandOff: "off",
     baseUrl: "DeepSeek base URL",
     baseUrlHint: "Override only if using a proxy. Empty = official endpoint. Restart required.",
     workspace: "Workspace",

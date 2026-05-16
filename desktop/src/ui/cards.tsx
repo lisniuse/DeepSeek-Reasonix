@@ -1,7 +1,8 @@
-import { memo, useState, type ReactNode } from "react";
-import { I } from "../icons";
+import { type ReactNode, memo, useState } from "react";
 import { Markdown } from "../Markdown";
 import { t, useLang } from "../i18n";
+import { I } from "../icons";
+import { useAutoExpandCards } from "./prefs";
 
 type Tone = "default" | "success" | "warning" | "danger" | "accent" | "violet";
 
@@ -67,9 +68,12 @@ export type PlanItem = {
 
 function derivePlanBadge(items: PlanItem[]): { cls: "run" | "ok" | "warn" | "err"; label: string } {
   if (items.some((x) => x.status === "failed")) return { cls: "err", label: t("planBadge.failed") };
-  if (items.some((x) => x.status === "blocked")) return { cls: "warn", label: t("planBadge.blocked") };
-  if (items.some((x) => x.status === "active")) return { cls: "run", label: t("planBadge.running") };
-  if (items.length > 0 && items.every((x) => x.status === "done")) return { cls: "ok", label: t("planBadge.done") };
+  if (items.some((x) => x.status === "blocked"))
+    return { cls: "warn", label: t("planBadge.blocked") };
+  if (items.some((x) => x.status === "active"))
+    return { cls: "run", label: t("planBadge.running") };
+  if (items.length > 0 && items.every((x) => x.status === "done"))
+    return { cls: "ok", label: t("planBadge.done") };
   return { cls: "run", label: t("planBadge.pending") };
 }
 
@@ -106,7 +110,9 @@ export function PlanCardView({ items, title }: { items: PlanItem[]; title?: stri
                 </div>
               ) : null}
             </div>
-            <span className="stat">{it.status === "active" ? <span className="spin" /> : null}</span>
+            <span className="stat">
+              {it.status === "active" ? <span className="spin" /> : null}
+            </span>
           </li>
         ))}
       </ul>
@@ -130,6 +136,7 @@ export function ReasoningCard({
   model?: string;
 }) {
   useLang();
+  const autoExpand = useAutoExpandCards();
   return (
     <Card
       tone="violet"
@@ -154,7 +161,7 @@ export function ReasoningCard({
           )}
         </>
       }
-      defaultOpen={streaming}
+      defaultOpen={streaming || autoExpand}
     >
       <div className="reason">
         <div className="stream">
@@ -294,6 +301,7 @@ export function ToolCard({
   ok?: boolean;
   durationMs?: number;
 }) {
+  const autoExpand = useAutoExpandCards();
   const running = result === undefined;
   const tone: Tone = running ? "default" : ok === false ? "danger" : "success";
   const dur = durationMs ? `${durationMs} ms` : "—";
@@ -303,7 +311,7 @@ export function ToolCard({
       icon={<I.wrench size={12} />}
       kind="tool"
       name={name}
-      defaultOpen={false}
+      defaultOpen={autoExpand}
       meta={
         running ? (
           <span className="pill-tag run">running</span>
@@ -372,7 +380,11 @@ export function DiffCard({
         <>
           <span style={{ color: "var(--success)" }}>+{adds}</span>
           <span style={{ color: "var(--danger)" }}>−{rms}</span>
-          {applied ? <span className="pill-tag ok">applied</span> : <span className="pill-tag warn">{t("cards.diffAwaiting")}</span>}
+          {applied ? (
+            <span className="pill-tag ok">applied</span>
+          ) : (
+            <span className="pill-tag warn">{t("cards.diffAwaiting")}</span>
+          )}
         </>
       }
     >
@@ -426,7 +438,11 @@ export function DiffCard({
 
 // ---- Error ----
 
-export function ErrorCard({ message, hint, code }: { message: string; hint?: ReactNode; code?: string }) {
+export function ErrorCard({
+  message,
+  hint,
+  code,
+}: { message: string; hint?: ReactNode; code?: string }) {
   useLang();
   return (
     <Card
@@ -554,7 +570,11 @@ export function MemoryCard({ rows }: { rows: MemRow[] }) {
       icon={<I.bookmark size={12} />}
       kind="memory"
       name={t("cards.memoryName")}
-      meta={<span>+ {rows.length} {t("cards.memoryCountSuffix")}</span>}
+      meta={
+        <span>
+          + {rows.length} {t("cards.memoryCountSuffix")}
+        </span>
+      }
     >
       <div className="mem">
         {rows.map((m, i) => (

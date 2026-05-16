@@ -3,7 +3,15 @@ import type { Balance, Settings as SettingsType, UsageStats } from "../App";
 import { setLang, t, useLang } from "../i18n";
 import { I } from "../icons";
 import type { McpSpecInfo, SettingsPatch, SkillInfo } from "../protocol";
-import { FONT_FAMILY, FONT_SCALE, type FontFamily, type FontScale, THEME, type Theme } from "../theme";
+import {
+  FONT_FAMILY,
+  FONT_SCALE,
+  type FontFamily,
+  type FontScale,
+  THEME,
+  type Theme,
+} from "../theme";
+import { setAutoExpandCards, useAutoExpandCards } from "./prefs";
 
 export type PageId =
   | "general"
@@ -175,6 +183,7 @@ function PageGeneral({
 }) {
   const [editorDraft, setEditorDraft] = useState(settings.editor ?? "");
   const lang = useLang();
+  const autoExpand = useAutoExpandCards();
   return (
     <>
       <section className="section">
@@ -265,11 +274,7 @@ function PageGeneral({
             <div className="h">{t("settings.languageHint")}</div>
           </div>
           <div className="seg-ctrl">
-            <button
-              type="button"
-              data-on={lang === "zh-CN"}
-              onClick={() => setLang("zh-CN")}
-            >
+            <button type="button" data-on={lang === "zh-CN"} onClick={() => setLang("zh-CN")}>
               中文
             </button>
             <button type="button" data-on={lang === "en"} onClick={() => setLang("en")}>
@@ -362,6 +367,20 @@ function PageGeneral({
               onSave({ budgetUsd: v === "" ? null : Number(v) });
             }}
           />
+        </div>
+        <div className="setting-row">
+          <div className="l">
+            <div className="n">{t("settings.autoExpandCards")}</div>
+            <div className="h">{t("settings.autoExpandCardsHint")}</div>
+          </div>
+          <div className="seg-ctrl">
+            <button type="button" data-on={autoExpand} onClick={() => setAutoExpandCards(true)}>
+              {t("settings.autoExpandOn")}
+            </button>
+            <button type="button" data-on={!autoExpand} onClick={() => setAutoExpandCards(false)}>
+              {t("settings.autoExpandOff")}
+            </button>
+          </div>
         </div>
       </section>
     </>
