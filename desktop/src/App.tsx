@@ -913,7 +913,6 @@ function TabRuntime({
   registerDispatch,
   onNewTab,
   onCloseTab,
-  onCloseTabById,
   onAbortTabById,
   onClearTabSession,
   canCloseTab,
@@ -1774,7 +1773,23 @@ function TabRuntime({
           recent={state.settings?.recentWorkspaces ?? []}
           current={state.settings?.workspaceDir}
           anchor={wdAnchor}
-          onPick={(path) => saveSettings({ workspaceDir: path })}
+          onPick={(path) => {
+            saveSettings({ workspaceDir: path });
+            // If the picked workspace already has sessions in the sidebar,
+            // jump to the first session in that folder. Otherwise create
+            // a fresh session for the new workspace.
+            const norm = (p: string) => p.replace(/\\/g, "/").replace(/\/$/, "").toLowerCase();
+            const npath = norm(path);
+            const sessionsInWs = state.sessions.filter((s) => norm(s.workspace) === npath);
+            if (sessionsInWs.length > 0) {
+              sessionsInWs.sort((a, b) => new Date(b.mtime).getTime() - new Date(a.mtime).getTime());
+              const name = sessionsInWs[0]!.name;
+              markPendingLoad(name);
+              sendRpc({ cmd: "session_load", name });
+            } else {
+              onNewTab(path);
+            }
+          }}
           onBrowse={pickWorkspace}
         />
 

@@ -434,7 +434,6 @@ export function Sidebar({
           menu={menu}
           pinned={pinnedSessions.has(menu.session.name)}
           customTitle={customTitles.get(menu.session.name)}
-          onClose={() => setMenu(null)}
           onStop={(id) => { onCloseTab(id); setMenu(null); }}
           onDelete={(name) => { onDeleteSession(name); setMenu(null); }}
           onRename={(name, currentTitle) => {
@@ -449,7 +448,6 @@ export function Sidebar({
         <FolderMenu
           menu={folderMenu}
           pinned={pinnedWs.has(folderMenu.key)}
-          onClose={() => setFolderMenu(null)}
           onHide={(key) => { hideWorkspace(key); setFolderMenu(null); }}
           onTogglePin={(key) => { togglePinWs(key); setFolderMenu(null); }}
           onOpenInExplorer={(ws) => { openPath(ws).catch(console.error); setFolderMenu(null); }}
@@ -463,7 +461,6 @@ function SessionMenu({
   menu,
   pinned,
   customTitle,
-  onClose,
   onStop,
   onDelete,
   onRename,
@@ -472,7 +469,6 @@ function SessionMenu({
   menu: SessionMenuState;
   pinned: boolean;
   customTitle?: string;
-  onClose: () => void;
   onStop: (tabId: string) => void;
   onDelete: (name: string) => void;
   onRename: (name: string, currentTitle: string) => void;
@@ -565,14 +561,12 @@ function SessionMenu({
 function FolderMenu({
   menu,
   pinned,
-  onClose,
   onHide,
   onTogglePin,
   onOpenInExplorer,
 }: {
   menu: FolderMenuState;
   pinned: boolean;
-  onClose: () => void;
   onHide: (key: string) => void;
   onTogglePin: (key: string) => void;
   onOpenInExplorer: (ws: string) => void;
