@@ -53,7 +53,7 @@ import { CacheFirstLoop, DeepSeekClient, ImmutablePrefix } from "../../index.js"
 import { parseMcpSpec } from "../../mcp/spec.js";
 import {
   deleteSession,
-  listSessionsForWorkspace,
+  listSessions,
   loadSessionMessages,
   loadSessionMeta,
   patchSessionMeta,
@@ -172,10 +172,15 @@ interface MentionPreviewEvent {
 interface TabOpenedEvent {
   type: "$tab_opened";
   workspaceDir: string;
+  session: string;
 }
 
 interface TabClosedEvent {
   type: "$tab_closed";
+}
+
+interface TabFocusEvent {
+  type: "$tab_focus";
 }
 
 type LoadedSegment =
@@ -365,6 +370,7 @@ type EmittableEvent =
   | MentionPreviewEvent
   | TabOpenedEvent
   | TabClosedEvent
+  | TabFocusEvent
   | McpSpecsEvent
   | SkillsEvent
   | CtxBreakdownEvent
@@ -469,18 +475,25 @@ async function emitBalance(tab: Tab): Promise<void> {
   );
 }
 
-function emitSessions(tab: Tab): void {
-  try {
-    const items = listSessionsForWorkspace(tab.rootDir).map((s) => ({
+/** All sessions that carry a workspace tag, newest-first — the desktop tree
+ *  groups them by workspace folder. Sessions without a workspace (legacy /
+ *  CLI-only) can't be placed in the tree, so they're omitted. */
+function buildSessionItems(): {
+  name: string;
+  messageCount: number;
+  mtime: string;
+  summary?: string;
+  workspace: string;
+}[] {
+  return listSessions()
+    .filter((s) => typeof s.meta.workspace === "string" && s.meta.workspace.length > 0)
+    .map((s) => ({
       name: s.name,
       messageCount: s.messageCount,
       mtime: s.mtime.toISOString(),
       summary: s.meta.summary,
+      workspace: s.meta.workspace as string,
     }));
-    emit({ type: "$sessions", items }, tab.id);
-  } catch (err) {
-    emit({ type: "$error", message: `session_list failed: ${(err as Error).message}` }, tab.id);
-  }
 }
 
 function summarizeMcpSpec(raw: string): McpSpecInfo {
@@ -750,9 +763,17 @@ export async function desktopCommand(opts: DesktopOptions): Promise<void> {
   }
 
   /** Synchronous tab construction — no I/O. All cheap, disk-only events (`$settings`, `$sessions`, `$memory`, `$skills`, `$mcp_specs`) can fire against this immediately. The heavy bits (`buildCodeToolset`, MCP probes, runtime construction) happen in `initTabToolset` so the UI shell paints without waiting for them. */
-  function createTabSkeleton(initialDir?: string): Tab {
-    const dir = resolve(initialDir ?? opts.dir ?? loadWorkspaceDir() ?? process.cwd());
+  function createTabSkeleton(o?: { initialDir?: string; existingSession?: string }): Tab {
+    const dir = o?.existingSession
+      ? resolve(
+          loadSessionMeta(o.existingSession).workspace ??
+            opts.dir ??
+            loadWorkspaceDir() ??
+            process.cwd(),
+        )
+      : resolve(o?.initialDir ?? opts.dir ?? loadWorkspaceDir() ?? process.cwd());
     pushRecentWorkspace(dir);
+    saveWorkspaceDir(dir);
     const preset = canonicalPresetName(loadPreset());
     const resolved = resolvePreset(preset);
     const model = opts.model || resolved.model;
@@ -779,7 +800,7 @@ export async function desktopCommand(opts: DesktopOptions): Promise<void> {
       mcpRuntime: null,
       mcpStatuses: new Map(),
     };
-    tab.currentSession = mintSessionFor(dir);
+    tab.currentSession = o?.existingSession ?? mintSessionFor(dir);
     tabs.set(tab.id, tab);
     return tab;
   }
@@ -913,52 +934,10 @@ export async function desktopCommand(opts: DesktopOptions): Promise<void> {
           tab.planTotalSteps = 0;
           emit({ type: "$plan_cleared" }, tab.id);
         }
-        emitSessions(tab);
+        broadcastSessions();
         void emitBalance(tab);
       }
     });
-  }
-
-  async function switchWorkspace(tab: Tab, nextDir: string): Promise<void> {
-    const target = resolve(nextDir);
-    if (target === tab.rootDir) {
-      emitSettings(tab);
-      return;
-    }
-    if (!existsSync(target) || !statSync(target).isDirectory()) {
-      emit({ type: "$error", message: `Workspace not found: ${target}` }, tab.id);
-      emitSettings(tab);
-      return;
-    }
-    abortTurn(tab);
-    try {
-      await tab.toolset?.jobs.shutdown();
-    } catch {
-      // shutdown errors aren't actionable here
-    }
-    tab.rootDir = target;
-    saveWorkspaceDir(target);
-    pushRecentWorkspace(target);
-    tab.fileIndex = null;
-    tab.fileIndexBuilding = null;
-    tab.fileIndexBuiltAt = 0;
-    tab.symbolIndex = null;
-    tab.symbolBuilding = null;
-    tab.recentMentions.length = 0;
-    tab.currentSession = mintSessionFor(target);
-    tab.toolset = await buildCodeToolset({
-      rootDir: target,
-      onSkillInstalled: () => emitSkills(tab),
-      onJobsChanged: () => emitJobs(),
-    });
-    tab.system = codeSystemPrompt(target, {
-      hasSemanticSearch: tab.toolset.semantic.enabled,
-      modelId: tab.currentModel,
-    });
-    if (tab.runtime) tab.runtime = buildRuntimeFor(tab);
-    emitSessions(tab);
-    emitSettings(tab);
-    emitSkills(tab);
   }
 
   function forgetGate(id: number): Tab | undefined {
@@ -1229,28 +1208,36 @@ export async function desktopCommand(opts: DesktopOptions): Promise<void> {
     pauseGate.cancel(req.id);
   });
 
-  // Fast-path: emit disk-only events immediately so the UI shell renders
-  // before the toolset finishes building. Heavy work (semantic bootstrap,
-  // MCP probes, runtime construction) runs in initTabToolset which fires
-  // `$ready` when it completes — until then `state.ready` keeps the
-  // composer disabled, so users can't send a message before the runtime
-  // exists. emitBalance was already fire-and-forget.
-  emit({ type: "$tab_opened", workspaceDir: first.rootDir }, first.id);
-  emitSessions(first);
-  emitSettings(first);
-  emitMcpSpecs(first);
-  emitSkills(first);
-  emitMemory(first);
-  if (!loadApiKey()) emit({ type: "$needs_setup", reason: "no_api_key" }, first.id);
-  void emitBalance(first);
-  void initTabToolset(first)
-    .then(() => {
-      if (loadApiKey()) emit({ type: "$ready" }, first.id);
-      emitCtxBreakdown(first);
-    })
-    .catch((err) => {
-      emit({ type: "$error", message: `init failed: ${(err as Error).message}` }, first.id);
-    });
+  function broadcastSessions(): void {
+    const items = buildSessionItems();
+    for (const t of tabs.values()) emit({ type: "$sessions", items }, t.id);
+  }
+
+  /** Fire the full open sequence for a freshly created tab. Disk-only events
+   *  go out immediately so the UI shell paints; the heavy work (semantic
+   *  bootstrap, MCP probes, runtime construction) runs in initTabToolset and
+   *  fires `$ready` when done — until then `state.ready` keeps the composer
+   *  disabled so users can't send before the runtime exists. */
+  function bootstrapTab(tab: Tab): void {
+    emit({ type: "$tab_opened", workspaceDir: tab.rootDir, session: tab.currentSession }, tab.id);
+    broadcastSessions();
+    emitSettings(tab);
+    emitMcpSpecs(tab);
+    emitSkills(tab);
+    emitMemory(tab);
+    if (!loadApiKey()) emit({ type: "$needs_setup", reason: "no_api_key" }, tab.id);
+    void emitBalance(tab);
+    void initTabToolset(tab)
+      .then(() => {
+        if (loadApiKey()) emit({ type: "$ready" }, tab.id);
+        emitCtxBreakdown(tab);
+      })
+      .catch((err) => {
+        emit({ type: "$error", message: `init failed: ${(err as Error).message}` }, tab.id);
+      });
+  }
+
+  bootstrapTab(first);
 
   const rl = createInterface({ input: stdin });
   rl.on("line", (line) => {
@@ -1266,23 +1253,7 @@ export async function desktopCommand(opts: DesktopOptions): Promise<void> {
 
     if (msg.cmd === "tab_open") {
       try {
-        const tab = createTabSkeleton(msg.workspaceDir);
-        emit({ type: "$tab_opened", workspaceDir: tab.rootDir }, tab.id);
-        emitSessions(tab);
-        emitSettings(tab);
-        emitMcpSpecs(tab);
-        emitSkills(tab);
-        emitMemory(tab);
-        if (!loadApiKey()) emit({ type: "$needs_setup", reason: "no_api_key" }, tab.id);
-        void emitBalance(tab);
-        void initTabToolset(tab)
-          .then(() => {
-            if (loadApiKey()) emit({ type: "$ready" }, tab.id);
-            emitCtxBreakdown(tab);
-          })
-          .catch((err) => {
-            emit({ type: "$error", message: `init failed: ${(err as Error).message}` }, tab.id);
-          });
+        bootstrapTab(createTabSkeleton({ initialDir: msg.workspaceDir }));
       } catch (err) {
         emit({ type: "$error", message: `tab_open failed: ${(err as Error).message}` });
       }
@@ -1462,22 +1433,28 @@ export async function desktopCommand(opts: DesktopOptions): Promise<void> {
       return;
     }
     if (msg.cmd === "session_list") {
-      emitSessions(tab);
+      broadcastSessions();
       return;
     }
     if (msg.cmd === "session_delete") {
       deleteSession(msg.name);
-      emitSessions(tab);
+      broadcastSessions();
       return;
     }
     if (msg.cmd === "session_load") {
+      // session = agent: focus the tab already running this session, or open
+      // a fresh tab bound to it. We never load into the requesting tab — that
+      // would orphan its own session and let two tabs clobber one file.
+      const already = [...tabs.values()].find((t) => t.currentSession === msg.name);
+      if (already) {
+        emit({ type: "$tab_focus" }, already.id);
+        return;
+      }
       try {
+        const newTab = createTabSkeleton({ existingSession: msg.name });
+        bootstrapTab(newTab);
         const records = loadSessionMessages(msg.name);
         const meta = loadSessionMeta(msg.name);
-        abortTurn(tab);
-        cancelPendingGates(tab);
-        tab.currentSession = msg.name;
-        if (tab.runtime) tab.runtime = buildRuntimeFor(tab);
         emit(
           {
             type: "$session_loaded",
@@ -1489,19 +1466,16 @@ export async function desktopCommand(opts: DesktopOptions): Promise<void> {
               cacheMissTokens: meta.cacheMissTokens ?? 0,
             },
           },
-          tab.id,
+          newTab.id,
         );
       } catch (err) {
-        emit({ type: "$error", message: `session_load failed: ${(err as Error).message}` }, tab.id);
+        emit({ type: "$error", message: `session_load failed: ${(err as Error).message}` });
       }
       return;
     }
     if (msg.cmd === "new_chat") {
-      abortTurn(tab);
-      cancelPendingGates(tab);
-      tab.currentSession = mintSessionFor(tab.rootDir);
-      if (tab.runtime) tab.runtime = buildRuntimeFor(tab);
-      emitSessions(tab);
+      // A new chat is just a new agent in the same workspace.
+      bootstrapTab(createTabSkeleton({ initialDir: tab.rootDir }));
       return;
     }
     if (msg.cmd === "settings_get") {
@@ -1521,7 +1495,9 @@ export async function desktopCommand(opts: DesktopOptions): Promise<void> {
         }
         if (msg.baseUrl !== undefined) saveBaseUrl(msg.baseUrl);
         if (msg.workspaceDir !== undefined) {
-          void switchWorkspace(tab, msg.workspaceDir);
+          // Picking a workspace opens a new agent there — sessions are
+          // workspace-bound, so there's no in-place "switch" anymore.
+          bootstrapTab(createTabSkeleton({ initialDir: msg.workspaceDir }));
           return;
         }
         if (msg.editor !== undefined) saveEditor(msg.editor);
