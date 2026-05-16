@@ -103,7 +103,13 @@ export type PlanClearedEvent = { type: "$plan_cleared" };
 
 export type SessionsEvent = {
   type: "$sessions";
-  items: { name: string; messageCount: number; mtime: string; summary?: string }[];
+  items: {
+    name: string;
+    messageCount: number;
+    mtime: string;
+    summary?: string;
+    workspace: string;
+  }[];
 };
 
 export type MentionResultsEvent = {
@@ -124,10 +130,15 @@ export type MentionPreviewEvent = {
 export type TabOpenedEvent = {
   type: "$tab_opened";
   workspaceDir: string;
+  session: string;
 };
 
 export type TabClosedEvent = {
   type: "$tab_closed";
+};
+
+export type TabFocusEvent = {
+  type: "$tab_focus";
 };
 
 export type McpSpecStatus = "configured" | "handshake" | "connected" | "failed" | "disabled";
@@ -385,6 +396,7 @@ export type IncomingEvent = { tabId?: string } & (
   | MentionPreviewEvent
   | TabOpenedEvent
   | TabClosedEvent
+  | TabFocusEvent
   | McpSpecsEvent
   | SkillsEvent
   | CtxBreakdownEvent
