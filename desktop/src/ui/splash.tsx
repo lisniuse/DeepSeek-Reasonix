@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const SPLASH_FLAG = "reasonix.splash.shown";
 
@@ -20,29 +20,30 @@ function markSplashShown() {
 
 export function Splash({ onDone }: { onDone: () => void }) {
   const [leaving, setLeaving] = useState(false);
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
 
   useEffect(() => {
-    const finish = () => {
-      markSplashShown();
-      onDone();
-    };
     const t1 = window.setTimeout(() => setLeaving(true), 1350);
-    const t2 = window.setTimeout(finish, 1800);
+    const t2 = window.setTimeout(() => {
+      markSplashShown();
+      onDoneRef.current();
+    }, 1800);
     return () => {
       window.clearTimeout(t1);
       window.clearTimeout(t2);
     };
-  }, [onDone]);
+  }, []);
 
   useEffect(() => {
     const skip = (e: KeyboardEvent) => {
       if (e.key !== "Escape" && e.key !== "Enter" && e.key !== " ") return;
       markSplashShown();
-      onDone();
+      onDoneRef.current();
     };
     window.addEventListener("keydown", skip);
     return () => window.removeEventListener("keydown", skip);
-  }, [onDone]);
+  }, []);
 
   const skipClick = () => {
     markSplashShown();
