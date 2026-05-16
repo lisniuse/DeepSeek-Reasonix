@@ -1,5 +1,6 @@
 import { Highlight, type PrismTheme } from "prism-react-renderer";
 import { useState } from "react";
+import { t } from "./i18n";
 
 const THEME: PrismTheme = {
   plain: { color: "#dde1ea", backgroundColor: "transparent" },
@@ -117,7 +118,7 @@ export function CollapsibleCode({
       <CodeView text={shown} lang={lang} startLine={startLine} />
       {tooLong && (
         <button type="button" className="tool-more" onClick={() => setOpen((v) => !v)}>
-          {open ? "less" : `+ ${lines.length - maxLines} more lines`}
+          {open ? t("markdown.codeLess") : t("markdown.codeMore", { n: String(lines.length - maxLines) })}
         </button>
       )}
     </>

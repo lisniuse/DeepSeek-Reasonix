@@ -339,6 +339,7 @@ export const zhCN: typeof en = {
     },
     errorLabel: "错误",
     jumpToBottom: "回到底部",
+    splashSubtitle: "DeepSeek Agents",
     connecting: "正在连接 reasonix 内核…",
     langZH: "中文",
     langEN: "English",
@@ -435,6 +436,15 @@ export const zhCN: typeof en = {
   extraCards: {
     sessionUsage: "会话用量",
     sessionCost: "花费 {costLabel}",
+  },
+  markdown: {
+    filePillTitle: "点击打开 · 右键复制",
+    openInBrowser: "在浏览器打开 {href}",
+    openLocal: "打开 {href}",
+    copied: "已复制",
+    copy: "复制",
+    codeLess: "收起",
+    codeMore: "+ 还剩 {n} 行",
   },
   thread: {
     avatarDS: "DS",

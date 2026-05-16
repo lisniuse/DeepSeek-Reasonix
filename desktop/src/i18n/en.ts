@@ -333,6 +333,7 @@ export const en = {
     },
     errorLabel: "Error",
     jumpToBottom: "Jump to bottom",
+    splashSubtitle: "DeepSeek Agents",
     connecting: "Connecting to reasonix core…",
     langZH: "Chinese",
     langEN: "English",
@@ -449,6 +450,15 @@ export const en = {
   extraCards: {
     sessionUsage: "Session usage",
     sessionCost: "Cost {costLabel}",
+  },
+  markdown: {
+    filePillTitle: "click to open · right-click to copy",
+    openInBrowser: "open {href} in browser",
+    openLocal: "open {href}",
+    copied: "copied",
+    copy: "copy",
+    codeLess: "less",
+    codeMore: "+ {n} more lines",
   },
   thread: {
     avatarDS: "DS",

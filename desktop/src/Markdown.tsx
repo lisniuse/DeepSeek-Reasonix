@@ -15,6 +15,7 @@ import {
 import ReactMarkdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
+import { t } from "./i18n";
 import { CodeView } from "./CodeView";
 
 async function openWithEditor(
@@ -95,7 +96,7 @@ function FilePill({ path, line }: { path: string; line?: string }) {
           void openInEditor();
         }
       }}
-      title="click to open · right-click to copy"
+      title={t("markdown.filePillTitle")}
     >
       <FileText size={10} className="file-pill-icon" />
       <span className="file-pill-path">{path}</span>
@@ -199,7 +200,7 @@ function SafeLink({ href, children }: { href?: string; children: ReactNode }) {
       href={href ?? "#"}
       onClick={onClick}
       className={`md-link ${isExternal ? "external" : "local"} ${done ? "done" : ""}`}
-      title={isExternal ? `open ${href} in browser` : `open ${href}`}
+      title={isExternal ? t("markdown.openInBrowser", { href: href ?? "" }) : t("markdown.openLocal", { href: href ?? "" })}
     >
       {children}
       {isExternal ? (
@@ -228,7 +229,7 @@ function CodeBlock({ lang, text }: { lang: string; text: string }): ReactNode {
         <span className="codeblock-lang">{lang}</span>
         <button type="button" className={`copy-btn ${copied ? "done" : ""}`} onClick={onCopy}>
           {copied ? <Check size={11} /> : <Copy size={11} />}
-          {copied ? "copied" : "copy"}
+          {copied ? t("markdown.copied") : t("markdown.copy")}
         </button>
       </div>
       <CodeView text={text} lang={lang} />
