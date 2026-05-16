@@ -25,10 +25,10 @@ export const UserMsg = memo(function UserMsg({
 }) {
   return (
     <div className="msg user">
-      <div className="avatar">YOU</div>
+      <div className="avatar">{t("app.exportUserLabel")}</div>
       <div className="body">
         <div className="who">
-          <span className="name">你</span>
+          <span className="name">{t("app.exportUserLabel")}</span>
           {skill ? (
             <span className="skill-chip" title={`skill · ${skill.runAs}`}>
               <I.zap size={10} /> /{skill.name}
@@ -64,10 +64,10 @@ export const AssistantMsg = memo(function AssistantMsg({
 }) {
   return (
     <div className="msg assistant">
-      <div className="avatar">DS</div>
+      <div className="avatar">{t("thread.avatarDS")}</div>
       <div className="body">
         <div className="who">
-          <span className="name">Reasonix</span>
+          <span className="name">{t("thread.assistantName")}</span>
           {model ? <span className="model">{model}</span> : null}
           {time ? <span className="time">{time}</span> : null}
         </div>
@@ -165,7 +165,7 @@ export function PlanBanner({
       </span>
       <div className="body">
         <div className="t">
-          计划执行中 · step {Math.min(done + 1, total)} / {total}
+          {t("thread.planExecuting", { step: String(Math.min(done + 1, total)), total: String(total) })}
           {current ? ` — ${current.title}` : ""}
         </div>
         <div className="s">{plan.plan}</div>
@@ -176,7 +176,7 @@ export function PlanBanner({
         </div>
         {onDismiss ? (
           <button type="button" onClick={onDismiss}>
-            收起
+            {t("plan.collapse")}
           </button>
         ) : null}
       </div>
@@ -199,7 +199,7 @@ export function ActivePlanCard({ plan }: { plan: ActivePlan }) {
       note: s.risk ? `risk: ${s.risk}` : undefined,
     };
   });
-  return <PlanCardView items={items} title="活动计划" />;
+  return <PlanCardView items={items} title={t("plan.activeTitle")} />;
 }
 
 // ---- Approval bindings ----
@@ -221,7 +221,7 @@ export function PlanApprovalCard({
     <ApprovalCard
       kind="plan confirmation"
       tone="info"
-      title="开始执行计划"
+      title={t("thread.planApprovalTitle")}
       sub={sub}
       body={
         <>
@@ -230,9 +230,9 @@ export function PlanApprovalCard({
         </>
       }
       meta={`plan/#${p.id}`}
-      primaryLabel="批准"
-      secondaryLabel="取消"
-      tertiaryLabel="细化"
+      primaryLabel={t("thread.approve")}
+      secondaryLabel={t("revision.cancel")}
+      tertiaryLabel={t("thread.refine")}
       onPrimary={onApprove}
       onSecondary={onCancel}
       onTertiary={onRefine}
@@ -255,8 +255,8 @@ export function CheckpointApprovalCard({
     <ApprovalCard
       kind="plan checkpoint"
       tone="brand"
-      title={c.title ?? `step ${c.completed} / ${c.total} 完成`}
-      sub={`检查点 · ${c.completed} / ${c.total}`}
+      title={c.title ?? t("checkpoint.stepComplete", { done: String(c.completed), total: String(c.total) })}
+      sub={t("checkpoint.sub", { done: String(c.completed), total: String(c.total) })}
       body={
         <>
           <div style={{ whiteSpace: "pre-wrap" }}>{c.result}</div>
@@ -266,9 +266,9 @@ export function CheckpointApprovalCard({
         </>
       }
       meta={`checkpoint · ${c.stepId}`}
-      primaryLabel="继续"
-      secondaryLabel="停止"
-      tertiaryLabel="修订"
+      primaryLabel={t("checkpoint.continue")}
+      secondaryLabel={t("checkpoint.stop")}
+      tertiaryLabel={t("checkpoint.revise")}
       onPrimary={onContinue}
       onSecondary={onStop}
       onTertiary={onRevise}
@@ -290,7 +290,7 @@ export function RevisionApprovalCard({
     <ApprovalCard
       kind="plan revision"
       tone="warn"
-      title="计划重写"
+      title={t("revision.title")}
       sub={t("thread.keepSteps", { n: r.remainingSteps.length })}
       body={
         <>
@@ -324,7 +324,7 @@ export function RevisionApprovalCard({
         </>
       }
       meta="reason · runtime constraint"
-      primaryLabel="批准重写"
+      primaryLabel={t("thread.acceptRewrite")}
       secondaryLabel={t("thread.keepOriginal")}
       onPrimary={onAccept}
       onSecondary={onReject}
@@ -349,17 +349,17 @@ export function ConfirmApprovalCard({
     <ApprovalCard
       kind="shell confirmation"
       tone="warn"
-      title={isBackground ? "后台运行命令" : "运行命令"}
+      title={isBackground ? t("thread.runBackground") : t("thread.runCommand")}
       sub={c.command.length > 80 ? `${c.command.slice(0, 80)}…` : c.command}
       preview={
         <>
           <span style={{ color: "var(--accent)" }}>$</span> {c.command}
         </>
       }
-      meta={`risk · 中 · ${c.kind}`}
-      primaryLabel="执行"
-      secondaryLabel="拒绝"
-      tertiaryLabel={`始终允许 "${firstWord} *"`}
+      meta={`risk · ${t("plan.riskMed")} · ${c.kind}`}
+      primaryLabel={t("thread.executing")}
+      secondaryLabel={t("cards.shellReject")}
+      tertiaryLabel={t("thread.alwaysAllow", { prefix: `${firstWord} *` })}
       onPrimary={onAllow}
       onSecondary={onDeny}
       onTertiary={() => onAlwaysAllow(`${firstWord} *`)}
@@ -385,12 +385,12 @@ export function PathAccessApprovalCard({
   onAlwaysAllow: (prefix: string) => void;
   onDeny: () => void;
 }) {
-  const intentText = p.intent === "write" ? "写入" : "读取";
+  const intentText = p.intent === "write" ? t("thread.intentWrite") : t("thread.intentRead");
   return (
     <ApprovalCard
       kind="path access"
       tone="warn"
-      title={`${intentText}沙盒外的路径`}
+      title={t("thread.pathAccessTitle", { intent: intentText })}
       sub={p.path}
       preview={
         <>
@@ -401,9 +401,9 @@ export function PathAccessApprovalCard({
         </>
       }
       meta={`risk · 中 · ${p.intent}`}
-      primaryLabel={intentText === "写入" ? "允许写入" : "允许读取"}
-      secondaryLabel="拒绝"
-      tertiaryLabel={`始终允许 ${p.allowPrefix}`}
+      primaryLabel={p.intent === "write" ? t("thread.allowWrite") : t("thread.allowRead")}
+      secondaryLabel={t("cards.shellReject")}
+      tertiaryLabel={t("thread.alwaysAllow", { prefix: p.allowPrefix })}
       onPrimary={onAllow}
       onSecondary={onDeny}
       onTertiary={() => onAlwaysAllow(p.allowPrefix)}
@@ -425,7 +425,7 @@ export function ChoiceApprovalCard({
       kind="user choice"
       tone="info"
       title={c.question}
-      sub={`${c.options.length} 个选项`}
+      sub={t("thread.optionsCount", { n: String(c.options.length) })}
       body={
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {c.options.map((o) => (
@@ -448,7 +448,7 @@ export function ChoiceApprovalCard({
           ))}
         </div>
       }
-      primaryLabel="取消"
+      primaryLabel={t("revision.cancel")}
       onPrimary={onCancel}
     />
   );
@@ -468,7 +468,7 @@ export function activePlanToTaskSteps(plan: ActivePlan): TaskStepView[] {
 export function ActivePlanTaskCard({ plan }: { plan: ActivePlan }) {
   return (
     <TaskCard
-      title="活动计划"
+      title={t("plan.activeTitle")}
       subtitle={plan.summary}
       steps={activePlanToTaskSteps(plan)}
     />

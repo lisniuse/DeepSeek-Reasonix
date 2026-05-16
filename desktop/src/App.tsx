@@ -1560,7 +1560,7 @@ function TabRuntime({
 
                   {state.messages.map((m, i) => {
                     if (m.kind === "user") {
-                      const dividerLabel = `turn ${m.turn}`;
+                      const dividerLabel = t("thread.turnLabel", { n: String(m.turn) });
                       const prev = state.messages[i - 1];
                       const needsDivider = !prev || prev.kind === "user";
                       return (
