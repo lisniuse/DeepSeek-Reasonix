@@ -9,6 +9,7 @@
 } from "react";
 import type React from "react";
 import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
+import { t } from "../i18n";
 import { I } from "../icons";
 import { fmtElapsed } from "./live";
 
@@ -51,7 +52,7 @@ export function ModeSwitch({
 }) {
   const cur = MODE_INFO.find((m) => m.k === mode) ?? MODE_INFO[1]!;
   return (
-    <div className="mode-switch" data-mode={mode} title={cur.hint}>
+    <div className="mode-switch" data-mode={mode} title={t(`composer.mode${cur.k[0]!.toUpperCase()}${cur.k.slice(1)}Hint` as any)}>
       {MODE_INFO.map((m) => (
         <button
           key={m.k}
@@ -326,7 +327,7 @@ export function Composer({
       <div className="composer-inner">
         {queuedSends && queuedSends.length > 0 ? (
           <div className="composer-queued">
-            <span className="composer-queued-label">排队 {queuedSends.length}</span>
+            <span className="composer-queued-label">{t("composer.queued", { n: String(queuedSends.length) })}</span>
             {queuedSends.map((text, i) => (
               <span key={i} className="composer-queue-chip" title={text}>
                 <span className="text">{text}</span>
@@ -352,19 +353,19 @@ export function Composer({
               <ModeSwitch mode={editMode} onChange={onEditModeChange} />
               <span className="hint-sep" />
               <span>
-                <kbd>⏎</kbd> 排队 &nbsp;·&nbsp; <kbd>esc</kbd> 中断
+                <span dangerouslySetInnerHTML={{ __html: t("composer.hintBusy") }} />
               </span>
             </>
           ) : (
             <>
               <span>
-                <kbd>/</kbd> 命令 &nbsp;·&nbsp; <kbd>@</kbd> 提及文件 &nbsp;·&nbsp; <kbd>⌘K</kbd> 命令面板
+                <span dangerouslySetInnerHTML={{ __html: t("composer.hintCommands") }} />
               </span>
               <span className="grow" />
               <ModeSwitch mode={editMode} onChange={onEditModeChange} />
               <span className="hint-sep" />
               <span>
-                <kbd>⏎</kbd> 发送 &nbsp; <kbd>⇧⏎</kbd> 换行
+                <span dangerouslySetInnerHTML={{ __html: t("composer.hintSend") }} />
               </span>
             </>
           )}
@@ -391,7 +392,7 @@ export function Composer({
           <textarea
             ref={textareaRef}
             value={draft}
-            placeholder="向 Agent 提问 / 安排任务…"
+            placeholder={busy ? t("composer.busy") : t("composer.idle")}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             rows={2}
@@ -402,7 +403,7 @@ export function Composer({
             <button
               type="button"
               className="cf-btn"
-              title="插入文件 (@ 提及)"
+              title={t("composer.attachFile")}
               onClick={() => void attachFile()}
             >
               <span className="ico">
@@ -412,7 +413,7 @@ export function Composer({
             <button
               type="button"
               className="cf-btn"
-              title="插入图片 (@ 提及)"
+              title={t("composer.attachImage")}
               onClick={() => void attachFile("image")}
             >
               <span className="ico">
@@ -422,7 +423,7 @@ export function Composer({
             <button
               type="button"
               className="cf-btn"
-              title="斜杠命令 (/)"
+              title={t("composer.slashCommands")}
               onClick={() => setPopup({ kind: "slash", query: "" })}
             >
               <span className="ico">
@@ -432,7 +433,7 @@ export function Composer({
             <button
               type="button"
               className="cf-btn"
-              title="提及文件 (@)"
+              title={t("composer.mention")}
               onClick={() => {
                 const nonce = ++nonceRef.current;
                 setPopup({ kind: "at", query: "", nonce });
@@ -450,7 +451,7 @@ export function Composer({
                 type="button"
                 className="model-pill"
                 onClick={() => setModelMenuOpen((v) => !v)}
-                title="切换模型预设"
+                title={t("composer.switchModel")}
               >
                 <I.brain size={12} />
                 <span>{modelLabel}</span>
@@ -473,7 +474,7 @@ export function Composer({
                 className="send-btn"
                 style={{ background: "var(--danger)" }}
                 onClick={onAbort}
-                title="中断"
+                title={t("app.header.abort")}
               >
                 <I.stop size={14} />
               </button>
@@ -535,7 +536,7 @@ function Popup({
     <div className="popup" onMouseDown={(e) => e.preventDefault()}>
       <div className="ph">
         <span className="tok">{kind === "slash" ? "/" : "@"}</span>
-        <span>{kind === "slash" ? "命令 — 控制 agent、模型与会话" : "提及 — 工作区中的文件"}</span>
+        <span>{kind === "slash" ? t("composer.popupSlashDesc") : t("composer.popupMentionDesc")}</span>
         <span className="grow" />
         <span style={{ cursor: "pointer" }} onClick={onClose}>
           <I.x size={11} />
@@ -551,7 +552,7 @@ function Popup({
               fontFamily: "inherit",
             }}
           >
-            无匹配项
+            {t("composer.popupEmpty")}
           </div>
         ) : null}
         {items.map((it, i) => (
@@ -585,15 +586,9 @@ function Popup({
         ))}
       </div>
       <div className="popup-foot">
-        <span>
-          <kbd>↑↓</kbd> 选择
-        </span>
-        <span>
-          <kbd>⏎</kbd> 确认
-        </span>
-        <span>
-          <kbd>esc</kbd> 关闭
-        </span>
+        <span dangerouslySetInnerHTML={{ __html: t("composer.popupMove") }} />
+        <span dangerouslySetInnerHTML={{ __html: t("composer.popupConfirm") }} />
+        <span dangerouslySetInnerHTML={{ __html: t("composer.popupClose") }} />
       </div>
     </div>
   );
@@ -620,7 +615,7 @@ function ModelMenu({
     >
       <div className="ph">
         <span className="tok">M</span>
-        <span>切换模型预设</span>
+        <span>{t("composer.switchModel")}</span>
       </div>
       <div className="popup-list">
         {order.map((p) => (
@@ -635,7 +630,7 @@ function ModelMenu({
             </span>
             <div className="nm">
               <span className="cmd">{PRESET_INFO[p].label}</span>
-              <div className="desc">{PRESET_INFO[p].desc}</div>
+              <div className="desc">{t(`composer.preset${p[0]!.toUpperCase()}${p.slice(1)}Desc` as any)}</div>
             </div>
             <span className="kb">{PRESET_INFO[p].badge}</span>
           </div>
