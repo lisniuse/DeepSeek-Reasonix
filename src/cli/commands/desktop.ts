@@ -58,6 +58,7 @@ import {
   listSessionsForWorkspace,
   loadSessionMessages,
   loadSessionMeta,
+  normalizeWorkspace,
   patchSessionMeta,
   sessionsDir,
   timestampSuffix,
@@ -1531,8 +1532,14 @@ export async function desktopCommand(opts: DesktopOptions): Promise<void> {
       return;
     }
     if (msg.cmd === "workspace_remove") {
+      const normPath = normalizeWorkspace(msg.path);
       for (const s of listSessionsForWorkspace(msg.path)) deleteSession(s.name);
       removeRecentWorkspace(msg.path);
+      // Clear rootDir on any open tab pointed at the deleted workspace so it
+      // stops appearing in the sidebar and workdir-pop open-tab fallback.
+      for (const t of tabs.values()) {
+        if (normalizeWorkspace(t.rootDir) === normPath) t.rootDir = "";
+      }
       broadcastSessions();
       for (const t of tabs.values()) emitSettings(t);
       return;

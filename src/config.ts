@@ -697,10 +697,11 @@ export function pushRecentWorkspace(dir: string, path: string = defaultConfigPat
 }
 
 export function removeRecentWorkspace(dir: string, path: string = defaultConfigPath()): void {
-  const key = dir.trim().toLowerCase();
+  const norm = (s: string) => s.trim().replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+  const key = norm(dir);
   if (!key) return;
   const cfg = readConfig(path);
-  cfg.recentWorkspaces = (cfg.recentWorkspaces ?? []).filter((s) => s.trim().toLowerCase() !== key);
+  cfg.recentWorkspaces = (cfg.recentWorkspaces ?? []).filter((s) => norm(s) !== key);
   writeConfig(cfg, path);
 }
 
