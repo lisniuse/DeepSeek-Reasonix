@@ -1545,16 +1545,15 @@ function TabRuntime({
                     </>
                   ) : null}
 
-                  {state.messages.length === 0 && tabsList.find((t) => t.id === tabId)?.loadingSession ? (
-                    <div style={{ padding: 24, textAlign: "center", color: "var(--muted)" }}>
-                      {t("sidebar.sessionLoading")}
-                    </div>
-                  ) : state.messages.length === 0 ? (
+                  <MaybeSessionLoading
+                    loading={!!tabsList.find((t) => t.id === tabId)?.loadingSession}
+                    messages={state.messages}
+                  >
                     <EmptyState
                       onPick={(t) => send(t)}
                       workspaceDir={state.settings?.workspaceDir}
                     />
-                  ) : null}
+                  </MaybeSessionLoading>
 
                   {state.messages.map((m, i) => {
                     if (m.kind === "user") {
@@ -1814,6 +1813,29 @@ function TabRuntime({
       </div>
     </WorkspaceProvider>
   );
+}
+
+function MaybeSessionLoading({
+  loading,
+  messages,
+  children,
+}: {
+  loading: boolean;
+  messages: ChatMessage[];
+  children: React.ReactNode;
+}) {
+  const [timedOut, setTimedOut] = useState(false);
+  useEffect(() => {
+    setTimedOut(false);
+    if (!loading) return;
+    const id = setTimeout(() => setTimedOut(true), 500);
+    return () => clearTimeout(id);
+  }, [loading]);
+  if (loading && messages.length === 0 && !timedOut) {
+    return <div style={{ padding: 24, textAlign: "center", color: "var(--muted)" }}>{t("sidebar.sessionLoading")}</div>;
+  }
+  if (messages.length === 0) return <>{children}</>;
+  return null;
 }
 
 function WinMinimize() {
