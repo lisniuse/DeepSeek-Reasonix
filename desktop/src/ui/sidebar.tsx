@@ -119,7 +119,9 @@ export function Sidebar({
   onOpenCommands: () => void;
 }) {
   const [query, setQuery] = useState("");
-  const [overrides, setOverrides] = useState<Map<string, boolean>>(new Map());
+  const [collapsedWs, setCollapsedWs] = useState<Set<string>>(
+    () => loadSet("reasonix.collapsedWorkspaces"),
+  );
   const [menu, setMenu] = useState<SessionMenuState | null>(null);
   const [folderMenu, setFolderMenu] = useState<FolderMenuState | null>(null);
   const [renaming, setRenaming] = useState<{ name: string; value: string } | null>(null);
@@ -305,32 +307,16 @@ export function Sidebar({
     };
   }, [folderMenu]);
 
-  // When the active session changes, auto-expand its folder (once).
-  // Using a ref to guard so groups re-renders don't re-trigger unnecessarily.
-  const prevActiveRef = useRef<string | undefined>(undefined);
-  useLayoutEffect(() => {
-    if (activeSessionName === prevActiveRef.current) return;
-    prevActiveRef.current = activeSessionName;
-    if (!activeSessionName) return;
-    for (const g of groups) {
-      if (g.list.some((s) => s.name === activeSessionName)) {
-        setOverrides((prev) => {
-          if (prev.get(g.key) === true) return prev;
-          const next = new Map(prev);
-          next.set(g.key, true);
-          return next;
-        });
-        break;
-      }
-    }
-  }, [activeSessionName, groups]);
+  // Folders are expanded by default; only explicitly user-collapsed folders are tracked.
+  // Clicking a session never touches this set — only clicking the folder header does.
+  const isExpanded = (key: string) => !collapsedWs.has(key) || query.trim().length > 0;
 
-  const isExpanded = (ws: string) => overrides.get(ws) ?? (query.trim().length > 0);
-
-  const toggleFolder = (ws: string, cur: boolean) => {
-    setOverrides((prev) => {
-      const next = new Map(prev);
-      next.set(ws, !cur);
+  const toggleFolder = (key: string, expanded: boolean) => {
+    setCollapsedWs((prev) => {
+      const next = new Set(prev);
+      if (expanded) next.add(key);
+      else next.delete(key);
+      saveSet("reasonix.collapsedWorkspaces", next);
       return next;
     });
   };
@@ -423,21 +409,11 @@ export function Sidebar({
                         title={isRenaming ? undefined : displayTitle}
                         onClick={() => {
                           if (isRenaming) return;
-                          setOverrides((prev) => {
-                            const next = new Map(prev);
-                            next.set(key, true);
-                            return next;
-                          });
                           if (s.openTabId) onActivateTab(s.openTabId);
                           else onOpenSession(s.name);
                         }}
                         onKeyDown={(e) => {
                           if (isRenaming || e.key !== "Enter") return;
-                          setOverrides((prev) => {
-                            const next = new Map(prev);
-                            next.set(key, true);
-                            return next;
-                          });
                           if (s.openTabId) onActivateTab(s.openTabId);
                           else onOpenSession(s.name);
                         }}
