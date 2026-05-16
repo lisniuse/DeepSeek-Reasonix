@@ -262,7 +262,6 @@ html[data-platform="macos"] .app {
   display: grid;
   gap: 18px;
   padding: 22px;
-  border: 1px solid var(--border);
   border-radius: 18px;
   background: color-mix(in oklch, var(--card) 88%, transparent);
   box-shadow: var(--shadow-md);
