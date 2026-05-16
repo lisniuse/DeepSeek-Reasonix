@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { I } from "../icons";
 import { t, useLang } from "../i18n";
 
@@ -56,7 +56,7 @@ export function WorkdirPop({
           <span
             style={{
               marginLeft: "auto",
-              fontFamily: "IBM Plex Mono, monospace",
+              fontFamily: "inherit",
               fontSize: 10,
               color: "var(--muted)",
             }}
@@ -88,7 +88,7 @@ export function WorkdirPop({
                 padding: "16px 12px",
                 fontSize: 11.5,
                 color: "var(--muted)",
-                fontFamily: "IBM Plex Mono, monospace",
+                fontFamily: "inherit",
               }}
             >
               {t("workdir.empty")}

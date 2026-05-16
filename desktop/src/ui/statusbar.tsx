@@ -28,7 +28,6 @@ export function StatusBar({
   onToggleTheme,
   onToggleCurrency,
   onOpenSettings,
-  onOpenWorkdir,
 }: {
   settings: Settings | null;
   balance: Balance | null;
@@ -43,7 +42,6 @@ export function StatusBar({
   onToggleTheme: () => void;
   onToggleCurrency: () => void;
   onOpenSettings: () => void;
-  onOpenWorkdir?: (anchor: { bottom: number; left: number }) => void;
 }) {
   const totalTokens = usage.cacheHitTokens + usage.cacheMissTokens;
   const cacheHitPct = totalTokens > 0 ? Math.round((usage.cacheHitTokens / totalTokens) * 100) : 0;
@@ -91,21 +89,6 @@ export function StatusBar({
         <span className={runningJobs > 0 ? "v acc" : "v"}>{runningJobs}</span>
       </span>
 
-      {settings?.workspaceDir ? (
-        <span
-          className="seg"
-          title={`切换工作区 · ${settings.workspaceDir}`}
-          style={onOpenWorkdir ? { cursor: "pointer" } : undefined}
-          onClick={(e) => {
-            if (!onOpenWorkdir) return;
-            const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-            onOpenWorkdir({ bottom: window.innerHeight - r.top + 6, left: r.left });
-          }}
-        >
-          <I.folder size={11} />
-          <span className="v">{settings.workspaceDir.split(/[\\/]/).pop() || "ws"}</span>
-        </span>
-      ) : null}
       <span
         className="seg"
         title={`model · preset ${settings?.preset ?? "auto"}`}

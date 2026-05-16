@@ -1,4 +1,4 @@
-import {
+﻿import {
   type ChangeEvent,
   type KeyboardEvent,
   type RefObject,
@@ -348,6 +348,9 @@ export function Composer({
                 <span className="composer-busy-label">{busyLabel}</span>
                 <span className="composer-busy-time">{fmtElapsed(busyElapsedMs ?? 0)}</span>
               </span>
+              <span className="grow" />
+              <ModeSwitch mode={editMode} onChange={onEditModeChange} />
+              <span className="hint-sep" />
               <span>
                 <kbd>⏎</kbd> 排队 &nbsp;·&nbsp; <kbd>esc</kbd> 中断
               </span>
@@ -357,6 +360,9 @@ export function Composer({
               <span>
                 <kbd>/</kbd> 命令 &nbsp;·&nbsp; <kbd>@</kbd> 提及文件 &nbsp;·&nbsp; <kbd>⌘K</kbd> 命令面板
               </span>
+              <span className="grow" />
+              <ModeSwitch mode={editMode} onChange={onEditModeChange} />
+              <span className="hint-sep" />
               <span>
                 <kbd>⏎</kbd> 发送 &nbsp; <kbd>⇧⏎</kbd> 换行
               </span>
@@ -416,16 +422,17 @@ export function Composer({
             <button
               type="button"
               className="cf-btn"
+              title="斜杠命令 (/)"
               onClick={() => setPopup({ kind: "slash", query: "" })}
             >
               <span className="ico">
                 <I.slash size={14} />
               </span>
-              <span className="label">commands</span>
             </button>
             <button
               type="button"
               className="cf-btn"
+              title="提及文件 (@)"
               onClick={() => {
                 const nonce = ++nonceRef.current;
                 setPopup({ kind: "at", query: "", nonce });
@@ -434,12 +441,9 @@ export function Composer({
               <span className="ico">
                 <I.at size={14} />
               </span>
-              <span className="label">mention</span>
             </button>
 
             <span className="grow" />
-
-            <ModeSwitch mode={editMode} onChange={onEditModeChange} />
 
             <div ref={modelWrapRef} style={{ position: "relative" }}>
               <button
@@ -544,7 +548,7 @@ function Popup({
               padding: "12px 8px",
               fontSize: 11.5,
               color: "var(--muted-2)",
-              fontFamily: "IBM Plex Mono, monospace",
+              fontFamily: "inherit",
             }}
           >
             无匹配项

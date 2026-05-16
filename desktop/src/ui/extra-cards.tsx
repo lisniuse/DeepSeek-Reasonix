@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+﻿import type { ReactNode } from "react";
 import { I } from "../icons";
 import { t } from "../i18n";
 
@@ -197,7 +197,7 @@ export function DoctorCard({ rows, headerSubtitle }: { rows: DoctorRow[]; header
             <div
               className="ss"
               style={{
-                fontFamily: "IBM Plex Mono, monospace",
+                fontFamily: "inherit",
                 fontSize: 10.5,
                 color: "var(--muted)",
               }}

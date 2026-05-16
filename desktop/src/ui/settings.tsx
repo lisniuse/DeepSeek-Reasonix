@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from "react";
+﻿import { type ReactNode, useState } from "react";
 import type { Balance, Settings as SettingsType, UsageStats } from "../App";
 import { setLang, t, useLang } from "../i18n";
 import { I } from "../icons";
@@ -628,7 +628,7 @@ function PageSkills({ skills }: { skills: SkillInfo[] }) {
                 <div className="nm">
                   <span
                     style={{
-                      fontFamily: "IBM Plex Mono, monospace",
+                      fontFamily: "inherit",
                       color: "var(--accent)",
                     }}
                   >
@@ -644,7 +644,7 @@ function PageSkills({ skills }: { skills: SkillInfo[] }) {
             <div className="desc">{s.description}</div>
             <div
               style={{
-                fontFamily: "IBM Plex Mono, monospace",
+                fontFamily: "inherit",
                 fontSize: 10.5,
                 color: "var(--muted-2)",
                 marginTop: 4,
