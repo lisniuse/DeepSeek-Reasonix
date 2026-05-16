@@ -165,13 +165,18 @@ pub fn rpc_spawn(app: AppHandle, state: State<'_, RpcState>) -> Result<(), Strin
         cmd.creation_flags(CREATE_NO_WINDOW);
     }
 
+    // In dev mode, pin the Node child's CWD to the repo root so
+    // process.cwd() resolves correctly during dev/iteration.  In release
+    // builds the installed app has no repo layout and forcing a CWD can
+    // land on C:\ where Node's realpathSync chokes (EISDIR on bare C:).
+    #[cfg(debug_assertions)]
     if let Ok(cwd) = env::current_dir() {
-        let repo_root = cwd
-            .ancestors()
-            .find(|p| p.join("package.json").exists() && p.join("src/cli").exists())
-            .unwrap_or(&cwd)
-            .to_path_buf();
-        cmd.current_dir(repo_root);
+        if let Some(repo_root) =
+            cwd.ancestors()
+                .find(|p| p.join("package.json").exists() && p.join("src/cli").exists())
+        {
+            cmd.current_dir(repo_root);
+        }
     }
 
     let mut child = cmd.spawn().map_err(|e| format!("spawn: {e}"))?;
