@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { existsSync, statSync, writeSync } from "node:fs";
+import { closeSync, existsSync, openSync, statSync, writeSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
 import { stdin } from "node:process";
@@ -28,6 +28,7 @@ import {
   loadWorkspaceDir,
   pushRecentWorkspace,
   readConfig,
+  removeRecentWorkspace,
   saveApiKey,
   saveBaseUrl,
   saveEditMode,
@@ -54,9 +55,11 @@ import { parseMcpSpec } from "../../mcp/spec.js";
 import {
   deleteSession,
   listSessions,
+  listSessionsForWorkspace,
   loadSessionMessages,
   loadSessionMeta,
   patchSessionMeta,
+  sessionsDir,
   timestampSuffix,
 } from "../../memory/session.js";
 import { MemoryStore } from "../../memory/user.js";
@@ -112,6 +115,7 @@ type InMessage = { tabId?: string } & (
   | { cmd: "jobs_list" }
   | { cmd: "jobs_stop"; jobId: number }
   | { cmd: "jobs_stop_all" }
+  | { cmd: "workspace_remove"; path: string }
 );
 
 interface NeedsSetupEvent {
@@ -636,6 +640,12 @@ function mintSessionFor(rootDir: string): string {
   const name = `desktop-${timestampSuffix()}-${tabCounter}`;
   try {
     patchSessionMeta(name, { workspace: rootDir });
+    // Touch the .jsonl transcript file so listSessions() can find this session
+    // immediately (it scans .jsonl files). Without this, the session only has a
+    // .meta.json and stays invisible until the first message is sent — causing
+    // WorkdirPop to create a new session on every click.
+    const jsonlPath = join(sessionsDir(), `${name}.jsonl`);
+    if (!existsSync(jsonlPath)) closeSync(openSync(jsonlPath, "a"));
   } catch {
     // session meta is for filtering only — failure shouldn't block chat
   }
@@ -1523,6 +1533,13 @@ export async function desktopCommand(opts: DesktopOptions): Promise<void> {
           tab.id,
         );
       }
+      return;
+    }
+    if (msg.cmd === "workspace_remove") {
+      for (const s of listSessionsForWorkspace(msg.path)) deleteSession(s.name);
+      removeRecentWorkspace(msg.path);
+      broadcastSessions();
+      for (const t of tabs.values()) emitSettings(t);
       return;
     }
     if (msg.cmd === "mention_query") {

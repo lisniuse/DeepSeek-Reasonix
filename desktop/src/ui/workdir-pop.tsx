@@ -2,6 +2,16 @@
 import { I } from "../icons";
 import { t, useLang } from "../i18n";
 
+function loadHiddenWs(): Set<string> {
+  try {
+    const raw = localStorage.getItem("reasonix.hiddenWorkspaces");
+    if (!raw) return new Set();
+    return new Set(JSON.parse(raw) as string[]);
+  } catch {
+    return new Set();
+  }
+}
+
 type Anchor = { top?: number; bottom?: number; left: number };
 
 export function WorkdirPop({
@@ -34,9 +44,19 @@ export function WorkdirPop({
 
   const items = useMemo(() => {
     const list = recent.length > 0 ? recent : current ? [current] : [];
+    const hidden = loadHiddenWs();
+    // Deduplicate by normalised path (case-insensitive, slash-unified) — keeps first occurrence.
+    // Also skip workspaces the user removed from the sidebar (hiddenWorkspaces).
+    const seen = new Set<string>();
+    const deduped = list.filter((p) => {
+      const key = p.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+      if (seen.has(key) || hidden.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
     const q = query.trim().toLowerCase();
-    if (!q) return list;
-    return list.filter((p) => p.toLowerCase().includes(q));
+    if (!q) return deduped;
+    return deduped.filter((p) => p.toLowerCase().includes(q));
   }, [recent, current, query]);
 
   if (!open) return null;

@@ -96,6 +96,7 @@ export function Sidebar({
   onCloseTab,
   onDeleteSession,
   onAddWorkspace,
+  onRemoveWorkspace,
   onOpenSettings,
   onOpenRules,
   onOpenCommands,
@@ -112,6 +113,7 @@ export function Sidebar({
   onCloseTab: (id: string) => void;
   onDeleteSession: (name: string) => void;
   onAddWorkspace: () => void;
+  onRemoveWorkspace: (path: string) => void;
   onOpenSettings: () => void;
   onOpenRules: () => void;
   onOpenCommands: () => void;
@@ -130,13 +132,16 @@ export function Sidebar({
   const activeSessionName =
     openTabs.find((t) => t.id === activeTabId)?.sessionName ?? activeSession;
 
-  const hideWorkspace = (key: string) => {
+  const deleteWorkspace = (key: string, ws: string) => {
+    // Clean up any legacy hidden-workspace entry, then truly remove from recentWorkspaces.
     setHiddenWs((prev) => {
+      if (!prev.has(key)) return prev;
       const next = new Set(prev);
-      next.add(key);
+      next.delete(key);
       saveSet("reasonix.hiddenWorkspaces", next);
       return next;
     });
+    onRemoveWorkspace(ws);
   };
 
   const togglePinWs = (key: string) => {
@@ -470,7 +475,8 @@ export function Sidebar({
         <FolderMenu
           menu={folderMenu}
           pinned={pinnedWs.has(folderMenu.key)}
-          onHide={(key) => { hideWorkspace(key); setFolderMenu(null); }}
+          sessionCount={groups.find((g) => g.key === folderMenu.key)?.list.length ?? 0}
+          onDelete={(key, ws) => { deleteWorkspace(key, ws); setFolderMenu(null); }}
           onTogglePin={(key) => { togglePinWs(key); setFolderMenu(null); }}
           onOpenInExplorer={(ws) => { openPath(ws).catch(console.error); setFolderMenu(null); }}
         />
@@ -583,18 +589,21 @@ function SessionMenu({
 function FolderMenu({
   menu,
   pinned,
-  onHide,
+  sessionCount,
+  onDelete,
   onTogglePin,
   onOpenInExplorer,
 }: {
   menu: FolderMenuState;
   pinned: boolean;
-  onHide: (key: string) => void;
+  sessionCount: number;
+  onDelete: (key: string, ws: string) => void;
   onTogglePin: (key: string) => void;
   onOpenInExplorer: (ws: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ left: menu.x, top: menu.y });
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   useLayoutEffect(() => {
     const el = ref.current;
@@ -612,21 +621,53 @@ function FolderMenu({
     <div ref={ref} className="folder-menu session-menu" style={{ left: pos.left, top: pos.top }}>
       <div className="sm-name">{folderName(menu.ws) || "工作区"}</div>
 
-      <button type="button" className="sm-item" onClick={() => onTogglePin(menu.key)}>
-        {pinned ? <I.pinOff size={13} /> : <I.pin size={13} />}
-        <span>{pinned ? "取消置顶" : "置顶"}</span>
-      </button>
+      {!confirmingDelete ? (
+        <>
+          <button type="button" className="sm-item" onClick={() => onTogglePin(menu.key)}>
+            {pinned ? <I.pinOff size={13} /> : <I.pin size={13} />}
+            <span>{pinned ? "取消置顶" : "置顶"}</span>
+          </button>
 
-      <button type="button" className="sm-item" onClick={() => onOpenInExplorer(menu.ws)}>
-        <I.folder size={13} />
-        <span>资源管理器打开</span>
-      </button>
+          <button type="button" className="sm-item" onClick={() => onOpenInExplorer(menu.ws)}>
+            <I.folder size={13} />
+            <span>资源管理器打开</span>
+          </button>
 
-      <div className="sm-sep" />
-      <button type="button" className="sm-item danger" onClick={() => onHide(menu.key)}>
-        <I.x size={13} />
-        <span>移除</span>
-      </button>
+          <div className="sm-sep" />
+          <button type="button" className="sm-item danger" onClick={() => setConfirmingDelete(true)}>
+            <I.trash size={13} />
+            <span>删除</span>
+          </button>
+        </>
+      ) : (
+        <div className="sm-confirm">
+          <div className="sm-confirm-icon">
+            <I.trash size={16} />
+          </div>
+          <p className="sm-confirm-title">删除工作区</p>
+          <p className="sm-confirm-desc">
+            {sessionCount > 0
+              ? `「${folderName(menu.ws) || menu.ws}」及其 ${sessionCount} 条会话记录将被永久删除，无法恢复。`
+              : `「${folderName(menu.ws) || menu.ws}」将被移除，此操作无法撤销。`}
+          </p>
+          <div className="sm-confirm-actions">
+            <button
+              type="button"
+              className="sm-confirm-cancel"
+              onClick={() => setConfirmingDelete(false)}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              className="sm-confirm-ok"
+              onClick={() => onDelete(menu.key, menu.ws)}
+            >
+              删除
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

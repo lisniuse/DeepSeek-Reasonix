@@ -696,6 +696,14 @@ export function pushRecentWorkspace(dir: string, path: string = defaultConfigPat
   writeConfig(cfg, path);
 }
 
+export function removeRecentWorkspace(dir: string, path: string = defaultConfigPath()): void {
+  const key = dir.trim().toLowerCase();
+  if (!key) return;
+  const cfg = readConfig(path);
+  cfg.recentWorkspaces = (cfg.recentWorkspaces ?? []).filter((s) => s.trim().toLowerCase() !== key);
+  writeConfig(cfg, path);
+}
+
 export function loadPreset(path: string = defaultConfigPath()): PresetName | undefined {
   return readConfig(path).preset;
 }

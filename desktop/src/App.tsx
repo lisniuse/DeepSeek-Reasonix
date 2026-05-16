@@ -1497,6 +1497,7 @@ function TabRuntime({
             }
           }}
           onAddWorkspace={pickWorkspace}
+          onRemoveWorkspace={(path) => sendRpc({ cmd: "workspace_remove", path })}
           onOpenSettings={() => openSettingsAt("general")}
           onOpenRules={() => openSettingsAt("rules")}
           onOpenCommands={() => palette.setOpen(true)}
@@ -1780,18 +1781,24 @@ function TabRuntime({
             const npath = norm(path);
             const sessionsInWs = state.sessions.filter((s) => norm(s.workspace) === npath);
             if (sessionsInWs.length > 0) {
-              // Workspace already has sessions → jump to the most recent one.
-              // session_load creates the tab with the correct workspaceDir,
-              // so we don't need a separate saveSettings / tab_open call.
+              // Workspace has sessions → load the most recent one.
+              // The kernel checks by session name: if a tab already has it open it
+              // emits $tab_focus; otherwise it creates a new tab and loads the session.
               sessionsInWs.sort((a, b) => new Date(b.mtime).getTime() - new Date(a.mtime).getTime());
               const name = sessionsInWs[0]!.name;
               markPendingLoad(name);
               sendRpc({ cmd: "session_load", name });
             } else {
-              // Fresh workspace → saveSettings triggers tab creation via kernel.
-              // Only call saveSettings (not onNewTab), because the kernel's
-              // settings_save handler already calls createTabSkeleton + bootstrapTab.
-              saveSettings({ workspaceDir: path });
+              // No sessions yet for this workspace.
+              // Guard: if a tab is already open for this workspace focus it (avoids
+              // creating a second empty tab on a double-click / stale state).
+              const openTab = tabsList.find((t) => t.workspaceDir && norm(t.workspaceDir) === npath);
+              if (openTab) {
+                setActiveTabId(openTab.id);
+              } else {
+                // Fresh workspace → saveSettings triggers tab + session creation via kernel.
+                saveSettings({ workspaceDir: path });
+              }
             }
           }}
           onBrowse={pickWorkspace}

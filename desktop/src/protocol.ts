@@ -441,4 +441,5 @@ export type OutgoingCommand = { tabId?: string } & (
   | { cmd: "jobs_list" }
   | { cmd: "jobs_stop"; jobId: number }
   | { cmd: "jobs_stop_all" }
+  | { cmd: "workspace_remove"; path: string }
 );
