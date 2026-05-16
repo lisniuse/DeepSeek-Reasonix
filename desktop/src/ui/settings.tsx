@@ -1,4 +1,5 @@
-﻿import { type ReactNode, useState } from "react";
+﻿import { invoke } from "@tauri-apps/api/core";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import type { Balance, Settings as SettingsType, UsageStats } from "../App";
 import { setLang, t, useLang } from "../i18n";
 import { I } from "../icons";
@@ -679,20 +680,82 @@ function PageSkills({ skills }: { skills: SkillInfo[] }) {
 }
 
 function PageMemory() {
+  const [content, setContent] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout>>(null);
+
+  useEffect(() => {
+    invoke<string>("read_global_memory")
+      .then((text) => setContent(text ?? ""))
+      .catch(() => setContent(""));
+  }, []);
+
+  const handleSave = useCallback(() => {
+    if (content === null) return;
+    invoke("write_global_memory", { content })
+      .then(() => {
+        setSaved(true);
+        if (saveTimer.current) clearTimeout(saveTimer.current);
+        saveTimer.current = setTimeout(() => setSaved(false), 3000);
+      })
+      .catch((err) => console.error("write_global_memory failed", err));
+  }, [content]);
+
   return (
     <section className="section">
       <div className="stitle">{t("settings.memorySection")}</div>
       <div
         style={{
-          padding: 16,
-          background: "var(--card)",
-          border: "1px solid var(--border)",
-          borderRadius: 10,
+          marginBottom: 8,
           fontSize: 12,
           color: "var(--muted)",
         }}
       >
         {t("settings.memoryDesc")}
+      </div>
+      <div
+        style={{
+          fontSize: 11,
+          color: "var(--muted-2)",
+          marginBottom: 8,
+          fontFamily: "inherit",
+        }}
+      >
+        {t("settings.memoryPath")}
+      </div>
+      <textarea
+        className="global-memory-editor"
+        value={content ?? ""}
+        onChange={(e) => {
+          setContent(e.target.value);
+          setSaved(false);
+        }}
+        placeholder="# 全局偏好&#10;&#10;## 语言&#10;- 始终使用中文回复&#10;&#10;## 工具&#10;- 优先使用 pnpm"
+        disabled={content === null}
+        spellCheck={false}
+      />
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          marginTop: 8,
+        }}
+      >
+        <button
+          type="button"
+          className="btn primary"
+          disabled={content === null}
+          onClick={handleSave}
+          style={{ fontSize: 13 }}
+        >
+          {t("settings.memorySave")}
+        </button>
+        {saved && (
+          <span style={{ fontSize: 12, color: "var(--success)" }}>
+            {t("settings.memorySaved")}
+          </span>
+        )}
       </div>
     </section>
   );
