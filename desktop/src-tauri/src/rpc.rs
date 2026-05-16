@@ -10,8 +10,6 @@ use anyhow::{Context, Result, anyhow};
 use parking_lot::Mutex;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
-#[cfg(not(debug_assertions))]
-use tauri::Manager;
 use which::which_all;
 
 #[derive(Default)]
@@ -49,20 +47,23 @@ fn resolve_cli(app: &AppHandle) -> Result<(String, Vec<String>)> {
         return Ok((program, parts.collect()));
     }
 
-    // Production path: bundled Node + bundled CLI inside resource_dir.
-    // tauri.conf.json bundle.resources maps:
-    //   binaries/node.exe → <resource_dir>/node.exe
-    //   ../../dist        → <resource_dir>/dist
-    //
-    // Dev (debug_assertions) skips this entirely — the on-disk node.exe is a
-    // 0-byte placeholder kept just so tauri-build's resource validator passes;
-    // spawning it is what produced error 193 ("not a valid Win32 application").
+    // Production: find the bundled dist/cli/index.js relative to the EXE.
+    // Using current_exe() is more reliable than resource_dir() across MSI /
+    // NSIS / WiX layouts — the resource dir can vary, but dist/ is always a
+    // sibling (or child) of the binary in our packaging.
     #[cfg(not(debug_assertions))]
-    if let Ok(res_dir) = app.path().resource_dir() {
-        let node_name = if cfg!(windows) { "node.exe" } else { "node" };
-        let node_path = res_dir.join(node_name);
-        let cli_path = res_dir.join("dist").join("cli").join("index.js");
-        if cli_path.exists() {
+    {
+        let exe = std::env::current_exe().context("current_exe")?;
+        let exe_dir = exe.parent().context("exe has no parent")?;
+        // NSIS: dist/ is alongside the exe.  MSI / WiX: the exe may sit one
+        // level above resources/, so try both.
+        let candidates = [
+            exe_dir.join("dist").join("cli").join("index.js"),
+            exe_dir.join("resources").join("dist").join("cli").join("index.js"),
+        ];
+        if let Some(cli_path) = candidates.into_iter().find(|p| p.exists()) {
+            let node_name = if cfg!(windows) { "node.exe" } else { "node" };
+            let node_path = exe_dir.join(node_name);
             let node = if node_path
                 .metadata()
                 .map(|m| m.len() > 1_000_000)
