@@ -1490,6 +1490,9 @@ function TabRuntime({
           onDeleteSession={(name) => {
             sendRpc({ cmd: "session_delete", name });
             onClearTabSession(name);
+            if (localStorage.getItem("reasonix.lastSession") === name) {
+              localStorage.removeItem("reasonix.lastSession");
+            }
           }}
           onAddWorkspace={pickWorkspace}
           onOpenSettings={() => openSettingsAt("general")}
