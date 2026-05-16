@@ -1534,12 +1534,17 @@ export async function desktopCommand(opts: DesktopOptions): Promise<void> {
     if (msg.cmd === "workspace_remove") {
       const normPath = normalizeWorkspace(msg.path);
       for (const s of listSessionsForWorkspace(msg.path)) deleteSession(s.name);
-      removeRecentWorkspace(msg.path);
-      // Clear rootDir on any open tab pointed at the deleted workspace so it
-      // stops appearing in the sidebar and workdir-pop open-tab fallback.
-      for (const t of tabs.values()) {
-        if (normalizeWorkspace(t.rootDir) === normPath) t.rootDir = "";
+      // Close every tab open on the deleted workspace. If that empties the tab
+      // list, open a blank tab on a still-valid workspace first so the UI
+      // always has one — and never leaves an orphaned no-workspace tab behind.
+      const doomed = [...tabs.values()].filter((t) => normalizeWorkspace(t.rootDir) === normPath);
+      if (doomed.length > 0 && doomed.length === tabs.size) {
+        const fallbackDir = loadRecentWorkspaces().find((p) => normalizeWorkspace(p) !== normPath);
+        bootstrapTab(createTabSkeleton(fallbackDir ? { initialDir: fallbackDir } : undefined));
       }
+      for (const t of doomed) void closeTab(t);
+      // Remove last: createTabSkeleton above may re-push the workspace via cwd.
+      removeRecentWorkspace(msg.path);
       broadcastSessions();
       for (const t of tabs.values()) emitSettings(t);
       return;
