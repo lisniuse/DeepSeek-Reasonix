@@ -2510,23 +2510,24 @@ export function App() {
             const tabId = ev.tabId;
 
             if (ev.type === "$tab_opened" && tabId) {
+              let willAutoRestore = false;
+              if (!hasRestoredSessionRef.current) {
+                hasRestoredSessionRef.current = true;
+                willAutoRestore = !!localStorage.getItem("reasonix.lastSession");
+              }
               setTabs((prev) =>
                 prev.some((t) => t.id === tabId)
                   ? prev
-                  : [...prev, { id: tabId, workspaceDir: ev.workspaceDir, sessionName: ev.session, loadingSession: !!ev.session }],
+                  : [...prev, { id: tabId, workspaceDir: ev.workspaceDir, sessionName: willAutoRestore ? undefined : ev.session, loadingSession: !!ev.session }],
               );
               setActiveTabId(tabId);
-              // First tab on startup → override with our saved session (more reliable than kernel's own restore)
-              if (!hasRestoredSessionRef.current) {
-                hasRestoredSessionRef.current = true;
-                const lastSession = localStorage.getItem("reasonix.lastSession");
-                if (lastSession) {
-                  setTimeout(() => {
-                    invoke("rpc_send", {
-                      line: JSON.stringify({ tabId, cmd: "session_load", name: lastSession }),
-                    }).catch(() => {});
-                  }, 50);
-                }
+              if (willAutoRestore) {
+                const lastSession = localStorage.getItem("reasonix.lastSession")!;
+                setTimeout(() => {
+                  invoke("rpc_send", {
+                    line: JSON.stringify({ tabId, cmd: "session_load", name: lastSession }),
+                  }).catch(() => {});
+                }, 50);
               }
               return;
             }
