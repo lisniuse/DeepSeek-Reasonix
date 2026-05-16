@@ -1,6 +1,7 @@
 import { openPath } from "@tauri-apps/plugin-opener";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { SessionInfo } from "../App";
+import { t, useLang } from "../i18n";
 import { I } from "../icons";
 
 type OpenTab = { id: string; workspaceDir?: string; sessionName?: string; busy?: boolean };
@@ -24,20 +25,20 @@ function prettyName(name: string, summary?: string, customTitle?: string): strin
   const m = name.match(/^desktop-(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(?:-(\d+))?$/);
   if (m) {
     const [, , month, day, hh, mm] = m;
-    return `会话 ${month}-${day} ${hh}:${mm}`;
+    return t("app.session.format", { month, day, hour: hh, minute: mm });
   }
   return name.replace(/^desktop-/, "").replace(/[-_]+/g, " ");
 }
 
 function relative(ms: number): string {
   const min = ms / 60_000;
-  if (min < 1) return "刚刚";
-  if (min < 60) return `${Math.floor(min)} 分钟前`;
+  if (min < 1) return t("time.justNow");
+  if (min < 60) return t("time.minutesAgo", { n: String(Math.floor(min)) });
   const hr = min / 60;
-  if (hr < 24) return `${Math.floor(hr)} 小时前`;
+  if (hr < 24) return t("time.hoursAgo", { n: String(Math.floor(hr)) });
   const d = hr / 24;
-  if (d < 7) return `${Math.floor(d)} 天前`;
-  return `${Math.floor(d / 7)} 周前`;
+  if (d < 7) return t("time.daysAgo", { n: String(Math.floor(d)) });
+  return t("time.weeksAgo", { n: String(Math.floor(d / 7)) });
 }
 
 function folderName(path: string): string {
@@ -46,7 +47,7 @@ function folderName(path: string): string {
     .split(/[\\/]/)
     .filter(Boolean)
     .pop();
-  return seg || path || "工作区";
+  return seg || path || t("sidebar.unnamedWorkspace");
 }
 
 function normWs(p: string): string {
@@ -153,6 +154,8 @@ export function Sidebar({
   const [customTitles, setCustomTitles] = useState<Map<string, string>>(() =>
     loadMap("reasonix.sessionTitles"),
   );
+
+  const lang = useLang();
 
   const activeSessionName =
     openTabs.find((t) => t.id === activeTabId)?.sessionName ?? activeSession;
@@ -292,7 +295,7 @@ export function Sidebar({
       if (q && g.list.length === 0) return false;
       return true;
     });
-  }, [sessions, openTabs, recentWorkspaces, query, hiddenWs, pinnedWs, pinnedSessions, customTitles]);
+  }, [sessions, openTabs, recentWorkspaces, query, hiddenWs, pinnedWs, pinnedSessions, customTitles, lang]);
 
   useEffect(() => {
     if (!menu) return;
@@ -342,10 +345,10 @@ export function Sidebar({
       <div className="side-head">
         <button type="button" className="new-btn" onClick={onNewChat}>
           <I.plus size={14} />
-          <span>新会话</span>
+          <span>{t("sidebar.newChat")}</span>
           <kbd>⌘N</kbd>
         </button>
-        <button type="button" className="icon-btn" title="命令面板" onClick={onOpenCommands}>
+        <button type="button" className="icon-btn" title={t("app.titlebar.commandPalette")} onClick={onOpenCommands}>
           <I.history size={14} />
         </button>
       </div>
@@ -353,14 +356,14 @@ export function Sidebar({
       <div className="search-row">
         <div className="input">
           <I.search size={13} />
-          <input placeholder="搜索会话…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <input placeholder={t("sidebar.searchPlaceholder")} value={query} onChange={(e) => setQuery(e.target.value)} />
           <kbd>⌘K</kbd>
         </div>
       </div>
 
       <div className="session-list">
         {groups.length === 0 ? (
-          <div className="tree-empty">{query ? "无匹配结果" : "暂无会话"}</div>
+          <div className="tree-empty">{query ? t("sidebar.noMatches") : t("sidebar.noSessions")}</div>
         ) : null}
         {groups.map(({ key, ws, list, pinned }) => {
           const expanded = isExpanded(key);
@@ -394,7 +397,7 @@ export function Sidebar({
                   <button
                     type="button"
                     className="tw-add"
-                    title="在此工作区新建会话"
+                    title={t("sidebar.newSessionInWorkspace")}
                     onClick={(e) => {
                       e.stopPropagation();
                       onNewSession(ws);
@@ -466,7 +469,7 @@ export function Sidebar({
                           )}
                           {!isRenaming && (
                             <span className="ts-meta">
-                              <span>{s.messageCount} 条</span>
+                              <span>{t("sidebar.messageCount", { count: String(s.messageCount) })}</span>
                               {updated ? (
                                 <>
                                   <span className="sep">·</span>
@@ -490,19 +493,19 @@ export function Sidebar({
           <span className="ico">
             <I.plus size={13} />
           </span>
-          <span>添加工作区</span>
+          <span>{t("sidebar.addWorkspace")}</span>
         </div>
         <div className="row" onClick={onOpenRules}>
           <span className="ico">
             <I.shield size={13} />
           </span>
-          <span>审批规则</span>
+          <span>{t("sidebar.approvalRules")}</span>
         </div>
         <div className="row" onClick={onOpenSettings}>
           <span className="ico">
             <I.cog size={13} />
           </span>
-          <span>设置</span>
+          <span>{t("sidebar.settings")}</span>
           <span className="right">⌘,</span>
         </div>
       </div>
@@ -599,12 +602,12 @@ function SessionMenu({
         <>
           <button type="button" className="sm-item" onClick={() => onTogglePin(s.name)}>
             {pinned ? <I.pinOff size={13} /> : <I.pin size={13} />}
-            <span>{pinned ? "取消置顶" : "置顶"}</span>
+            <span>{pinned ? t("sidebar.unpin") : t("sidebar.pin")}</span>
           </button>
 
           <button type="button" className="sm-item" onClick={() => onRename(s.name, displayTitle)}>
             <I.pencil size={13} />
-            <span>重命名</span>
+            <span>{t("sidebar.rename")}</span>
           </button>
 
           <div className="sm-sep" />
@@ -617,7 +620,7 @@ function SessionMenu({
             }}
           >
             <I.stop size={13} />
-            <span>停止运行</span>
+            <span>{t("sidebar.stopRunning")}</span>
           </button>
 
           <div className="sm-sep" />
@@ -627,7 +630,7 @@ function SessionMenu({
             onClick={() => setConfirmingDelete(true)}
           >
             <I.trash size={13} />
-            <span>删除会话</span>
+            <span>{t("sidebar.deleteSession")}</span>
           </button>
         </>
       ) : (
@@ -635,18 +638,18 @@ function SessionMenu({
           <div className="sm-confirm-icon">
             <I.trash size={16} />
           </div>
-          <p className="sm-confirm-title">删除会话</p>
-          <p className="sm-confirm-desc">「{displayTitle}」将被永久删除，无法恢复。</p>
+          <p className="sm-confirm-title">{t("sidebar.deleteSessionConfirmTitle")}</p>
+          <p className="sm-confirm-desc">{t("sidebar.deleteSessionConfirmDesc", { title: displayTitle })}</p>
           <div className="sm-confirm-actions">
             <button
               type="button"
               className="sm-confirm-cancel"
               onClick={() => setConfirmingDelete(false)}
             >
-              取消
+              {t("sidebar.cancel")}
             </button>
             <button type="button" className="sm-confirm-ok" onClick={() => onDelete(s.name)}>
-              删除
+              {t("sidebar.confirmDelete")}
             </button>
           </div>
         </div>
@@ -690,18 +693,18 @@ function FolderMenu({
 
   return (
     <div ref={ref} className="folder-menu session-menu" style={{ left: pos.left, top: pos.top }}>
-      <div className="sm-name">{folderName(menu.ws) || "工作区"}</div>
+      <div className="sm-name">{folderName(menu.ws) || t("sidebar.unnamedWorkspace")}</div>
 
       {!confirmingDelete ? (
         <>
           <button type="button" className="sm-item" onClick={() => onTogglePin(menu.key)}>
             {pinned ? <I.pinOff size={13} /> : <I.pin size={13} />}
-            <span>{pinned ? "取消置顶" : "置顶"}</span>
+            <span>{pinned ? t("sidebar.unpin") : t("sidebar.pin")}</span>
           </button>
 
           <button type="button" className="sm-item" onClick={() => onOpenInExplorer(menu.ws)}>
             <I.folder size={13} />
-            <span>资源管理器打开</span>
+            <span>{t("sidebar.openInExplorer")}</span>
           </button>
 
           <div className="sm-sep" />
@@ -711,7 +714,7 @@ function FolderMenu({
             onClick={() => setConfirmingDelete(true)}
           >
             <I.trash size={13} />
-            <span>删除</span>
+            <span>{t("sidebar.deleteWorkspace")}</span>
           </button>
         </>
       ) : (
@@ -719,11 +722,11 @@ function FolderMenu({
           <div className="sm-confirm-icon">
             <I.trash size={16} />
           </div>
-          <p className="sm-confirm-title">删除工作区</p>
+          <p className="sm-confirm-title">{t("sidebar.deleteWorkspaceConfirmTitle")}</p>
           <p className="sm-confirm-desc">
             {sessionCount > 0
-              ? `「${folderName(menu.ws) || menu.ws}」及其 ${sessionCount} 条会话记录将被永久删除，无法恢复。`
-              : `「${folderName(menu.ws) || menu.ws}」将被移除，此操作无法撤销。`}
+              ? t("sidebar.deleteWorkspaceConfirmDesc", { name: folderName(menu.ws) || menu.ws, count: String(sessionCount) })
+              : t("sidebar.deleteWorkspaceConfirmDescEmpty", { name: folderName(menu.ws) || menu.ws })}
           </p>
           <div className="sm-confirm-actions">
             <button
@@ -731,14 +734,14 @@ function FolderMenu({
               className="sm-confirm-cancel"
               onClick={() => setConfirmingDelete(false)}
             >
-              取消
+              {t("sidebar.cancel")}
             </button>
             <button
               type="button"
               className="sm-confirm-ok"
               onClick={() => onDelete(menu.key, menu.ws)}
             >
-              删除
+              {t("sidebar.confirmDelete")}
             </button>
           </div>
         </div>
