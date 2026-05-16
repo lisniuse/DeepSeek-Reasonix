@@ -1,7 +1,7 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { openPath } from "@tauri-apps/plugin-opener";
-import { I } from "../icons";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { SessionInfo } from "../App";
+import { I } from "../icons";
 
 type OpenTab = { id: string; workspaceDir?: string; sessionName?: string; busy?: boolean };
 
@@ -126,8 +126,12 @@ export function Sidebar({
 
   const [hiddenWs, setHiddenWs] = useState<Set<string>>(() => loadSet("reasonix.hiddenWorkspaces"));
   const [pinnedWs, setPinnedWs] = useState<Set<string>>(() => loadSet("reasonix.pinnedWorkspaces"));
-  const [pinnedSessions, setPinnedSessions] = useState<Set<string>>(() => loadSet("reasonix.pinnedSessions"));
-  const [customTitles, setCustomTitles] = useState<Map<string, string>>(() => loadMap("reasonix.sessionTitles"));
+  const [pinnedSessions, setPinnedSessions] = useState<Set<string>>(() =>
+    loadSet("reasonix.pinnedSessions"),
+  );
+  const [customTitles, setCustomTitles] = useState<Map<string, string>>(() =>
+    loadMap("reasonix.sessionTitles"),
+  );
 
   const activeSessionName =
     openTabs.find((t) => t.id === activeTabId)?.sessionName ?? activeSession;
@@ -147,7 +151,8 @@ export function Sidebar({
   const togglePinWs = (key: string) => {
     setPinnedWs((prev) => {
       const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       saveSet("reasonix.pinnedWorkspaces", next);
       return next;
     });
@@ -156,7 +161,8 @@ export function Sidebar({
   const togglePinSession = (name: string) => {
     setPinnedSessions((prev) => {
       const next = new Set(prev);
-      if (next.has(name)) next.delete(name); else next.add(name);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
       saveSet("reasonix.pinnedSessions", next);
       return next;
     });
@@ -166,7 +172,8 @@ export function Sidebar({
     setCustomTitles((prev) => {
       const next = new Map(prev);
       const trimmed = value.trim();
-      if (trimmed) next.set(name, trimmed); else next.delete(name);
+      if (trimmed) next.set(name, trimmed);
+      else next.delete(name);
       saveMap("reasonix.sessionTitles", next);
       return next;
     });
@@ -175,7 +182,8 @@ export function Sidebar({
 
   const groups = useMemo(() => {
     const openByName = new Map<string, { id: string; busy?: boolean }>();
-    for (const t of openTabs) if (t.sessionName) openByName.set(t.sessionName, { id: t.id, busy: t.busy });
+    for (const t of openTabs)
+      if (t.sessionName) openByName.set(t.sessionName, { id: t.id, busy: t.busy });
 
     const bySession = new Map<string, TreeSession>();
     for (const s of sessions) {
@@ -233,11 +241,15 @@ export function Sidebar({
     }
     for (const s of bySession.values()) {
       const displayTitle = prettyName(s.name, s.summary, customTitles.get(s.name));
-      if (q && !displayTitle.toLowerCase().includes(q) && !s.name.toLowerCase().includes(q)) continue;
+      if (q && !displayTitle.toLowerCase().includes(q) && !s.name.toLowerCase().includes(q))
+        continue;
       const key = (s.workspace || "").toLowerCase();
       const g = byWorkspace.get(key);
       if (g) g.list.push(s);
     }
+
+    const activeSessionForTab =
+      openTabs.find((t) => t.id === activeTabId)?.sessionName ?? activeSession;
 
     const result = [...byWorkspace.entries()].map(([key, { display, list }]) => {
       list.sort((a, b) => {
@@ -250,7 +262,9 @@ export function Sidebar({
         key,
         ws: display,
         list,
-        hasOpen: list.some((s) => s.openTabId),
+        // Auto-expand only the folder that contains the currently active session.
+        // Folders with open-but-inactive tabs stay collapsed unless manually expanded.
+        hasOpen: list.some((s) => s.name === activeSessionForTab),
         pinned: pinnedWs.has(key),
       };
     });
@@ -268,17 +282,33 @@ export function Sidebar({
       if (q && g.list.length === 0) return false;
       return true;
     });
-  }, [sessions, openTabs, recentWorkspaces, query, hiddenWs, pinnedWs, pinnedSessions, customTitles]);
+  }, [
+    sessions,
+    openTabs,
+    recentWorkspaces,
+    query,
+    hiddenWs,
+    pinnedWs,
+    pinnedSessions,
+    customTitles,
+    activeTabId,
+    activeSession,
+  ]);
 
   useEffect(() => {
     if (!menu) return;
     const onDown = (e: MouseEvent) => {
       if (!(e.target as HTMLElement | null)?.closest(".session-menu")) setMenu(null);
     };
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setMenu(null); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenu(null);
+    };
     window.addEventListener("mousedown", onDown);
     window.addEventListener("keydown", onKey);
-    return () => { window.removeEventListener("mousedown", onDown); window.removeEventListener("keydown", onKey); };
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
   }, [menu]);
 
   useEffect(() => {
@@ -286,17 +316,26 @@ export function Sidebar({
     const onDown = (e: MouseEvent) => {
       if (!(e.target as HTMLElement | null)?.closest(".folder-menu")) setFolderMenu(null);
     };
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setFolderMenu(null); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFolderMenu(null);
+    };
     window.addEventListener("mousedown", onDown);
     window.addEventListener("keydown", onKey);
-    return () => { window.removeEventListener("mousedown", onDown); window.removeEventListener("keydown", onKey); };
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
   }, [folderMenu]);
 
   const isExpanded = (ws: string, hasOpen: boolean) =>
     overrides.get(ws) ?? (hasOpen || query.trim().length > 0);
 
   const toggleFolder = (ws: string, cur: boolean) => {
-    setOverrides((prev) => { const next = new Map(prev); next.set(ws, !cur); return next; });
+    setOverrides((prev) => {
+      const next = new Map(prev);
+      next.set(ws, !cur);
+      return next;
+    });
   };
 
   return (
@@ -315,11 +354,7 @@ export function Sidebar({
       <div className="search-row">
         <div className="input">
           <I.search size={13} />
-          <input
-            placeholder="搜索会话…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
+          <input placeholder="搜索会话…" value={query} onChange={(e) => setQuery(e.target.value)} />
           <kbd>⌘K</kbd>
         </div>
       </div>
@@ -343,17 +378,28 @@ export function Sidebar({
                 }}
                 title={ws}
               >
-                <span className="tw-chev"><I.chev size={12} /></span>
-                <span className="tw-ico"><I.folder size={13} /></span>
+                <span className="tw-chev">
+                  <I.chev size={12} />
+                </span>
+                <span className="tw-ico">
+                  <I.folder size={13} />
+                </span>
                 <span className="tw-name">{folderName(ws)}</span>
-                {pinned ? <span className="tw-pin"><I.pin size={10} /></span> : null}
+                {pinned ? (
+                  <span className="tw-pin">
+                    <I.pin size={10} />
+                  </span>
+                ) : null}
                 <span className="tw-count">{list.length}</span>
                 {ws ? (
                   <button
                     type="button"
                     className="tw-add"
                     title="在此工作区新建会话"
-                    onClick={(e) => { e.stopPropagation(); onNewSession(ws); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onNewSession(ws);
+                    }}
                   >
                     <I.plus size={12} />
                   </button>
@@ -380,11 +426,21 @@ export function Sidebar({
                         title={isRenaming ? undefined : displayTitle}
                         onClick={() => {
                           if (isRenaming) return;
+                          setOverrides((prev) => {
+                            const next = new Map(prev);
+                            next.set(key, true);
+                            return next;
+                          });
                           if (s.openTabId) onActivateTab(s.openTabId);
                           else onOpenSession(s.name);
                         }}
                         onKeyDown={(e) => {
                           if (isRenaming || e.key !== "Enter") return;
+                          setOverrides((prev) => {
+                            const next = new Map(prev);
+                            next.set(key, true);
+                            return next;
+                          });
                           if (s.openTabId) onActivateTab(s.openTabId);
                           else onOpenSession(s.name);
                         }}
@@ -400,9 +456,7 @@ export function Sidebar({
                               className="ts-rename-input"
                               autoFocus
                               value={renaming.value}
-                              onChange={(e) =>
-                                setRenaming({ name: s.name, value: e.target.value })
-                              }
+                              onChange={(e) => setRenaming({ name: s.name, value: e.target.value })}
                               onKeyDown={(e) => {
                                 if (e.key === "Enter") commitRename(s.name, renaming.value);
                                 if (e.key === "Escape") setRenaming(null);
@@ -414,7 +468,9 @@ export function Sidebar({
                           ) : (
                             <span className="ts-title">
                               {pinned ? (
-                                <span className="ts-pin-ico"><I.pin size={10} /></span>
+                                <span className="ts-pin-ico">
+                                  <I.pin size={10} />
+                                </span>
                               ) : null}
                               {displayTitle}
                             </span>
@@ -442,15 +498,21 @@ export function Sidebar({
 
       <div className="side-foot">
         <div className="row" onClick={onAddWorkspace}>
-          <span className="ico"><I.plus size={13} /></span>
+          <span className="ico">
+            <I.plus size={13} />
+          </span>
           <span>添加工作区</span>
         </div>
         <div className="row" onClick={onOpenRules}>
-          <span className="ico"><I.shield size={13} /></span>
+          <span className="ico">
+            <I.shield size={13} />
+          </span>
           <span>审批规则</span>
         </div>
         <div className="row" onClick={onOpenSettings}>
-          <span className="ico"><I.cog size={13} /></span>
+          <span className="ico">
+            <I.cog size={13} />
+          </span>
           <span>设置</span>
           <span className="right">⌘,</span>
         </div>
@@ -461,13 +523,22 @@ export function Sidebar({
           menu={menu}
           pinned={pinnedSessions.has(menu.session.name)}
           customTitle={customTitles.get(menu.session.name)}
-          onStop={(id) => { onCloseTab(id); setMenu(null); }}
-          onDelete={(name) => { onDeleteSession(name); setMenu(null); }}
+          onStop={(id) => {
+            onCloseTab(id);
+            setMenu(null);
+          }}
+          onDelete={(name) => {
+            onDeleteSession(name);
+            setMenu(null);
+          }}
           onRename={(name, currentTitle) => {
             setMenu(null);
             setRenaming({ name, value: currentTitle });
           }}
-          onTogglePin={(name) => { togglePinSession(name); setMenu(null); }}
+          onTogglePin={(name) => {
+            togglePinSession(name);
+            setMenu(null);
+          }}
         />
       ) : null}
 
@@ -476,9 +547,18 @@ export function Sidebar({
           menu={folderMenu}
           pinned={pinnedWs.has(folderMenu.key)}
           sessionCount={groups.find((g) => g.key === folderMenu.key)?.list.length ?? 0}
-          onDelete={(key, ws) => { deleteWorkspace(key, ws); setFolderMenu(null); }}
-          onTogglePin={(key) => { togglePinWs(key); setFolderMenu(null); }}
-          onOpenInExplorer={(ws) => { openPath(ws).catch(console.error); setFolderMenu(null); }}
+          onDelete={(key, ws) => {
+            deleteWorkspace(key, ws);
+            setFolderMenu(null);
+          }}
+          onTogglePin={(key) => {
+            togglePinWs(key);
+            setFolderMenu(null);
+          }}
+          onOpenInExplorer={(ws) => {
+            openPath(ws).catch(console.error);
+            setFolderMenu(null);
+          }}
         />
       ) : null}
     </aside>
@@ -515,8 +595,10 @@ function SessionMenu({
     const pad = 8;
     let left = menu.x;
     let top = menu.y;
-    if (left + rect.width + pad > window.innerWidth) left = Math.max(pad, window.innerWidth - rect.width - pad);
-    if (top + rect.height + pad > window.innerHeight) top = Math.max(pad, window.innerHeight - rect.height - pad);
+    if (left + rect.width + pad > window.innerWidth)
+      left = Math.max(pad, window.innerWidth - rect.width - pad);
+    if (top + rect.height + pad > window.innerHeight)
+      top = Math.max(pad, window.innerHeight - rect.height - pad);
     if (left !== pos.left || top !== pos.top) setPos({ left, top });
   }, [menu.x, menu.y, pos.left, pos.top]);
 
@@ -541,7 +623,9 @@ function SessionMenu({
             type="button"
             className="sm-item"
             disabled={!s.running}
-            onClick={() => { if (s.openTabId) onStop(s.openTabId); }}
+            onClick={() => {
+              if (s.openTabId) onStop(s.openTabId);
+            }}
           >
             <I.stop size={13} />
             <span>停止运行</span>
@@ -572,11 +656,7 @@ function SessionMenu({
             >
               取消
             </button>
-            <button
-              type="button"
-              className="sm-confirm-ok"
-              onClick={() => onDelete(s.name)}
-            >
+            <button type="button" className="sm-confirm-ok" onClick={() => onDelete(s.name)}>
               删除
             </button>
           </div>
@@ -612,8 +692,10 @@ function FolderMenu({
     const pad = 8;
     let left = menu.x;
     let top = menu.y;
-    if (left + rect.width + pad > window.innerWidth) left = Math.max(pad, window.innerWidth - rect.width - pad);
-    if (top + rect.height + pad > window.innerHeight) top = Math.max(pad, window.innerHeight - rect.height - pad);
+    if (left + rect.width + pad > window.innerWidth)
+      left = Math.max(pad, window.innerWidth - rect.width - pad);
+    if (top + rect.height + pad > window.innerHeight)
+      top = Math.max(pad, window.innerHeight - rect.height - pad);
     if (left !== pos.left || top !== pos.top) setPos({ left, top });
   }, [menu.x, menu.y, pos.left, pos.top]);
 
@@ -634,7 +716,11 @@ function FolderMenu({
           </button>
 
           <div className="sm-sep" />
-          <button type="button" className="sm-item danger" onClick={() => setConfirmingDelete(true)}>
+          <button
+            type="button"
+            className="sm-item danger"
+            onClick={() => setConfirmingDelete(true)}
+          >
             <I.trash size={13} />
             <span>删除</span>
           </button>
