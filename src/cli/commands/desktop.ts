@@ -396,38 +396,46 @@ function tailLines(s: string, n: number): string {
 function buildLoadedMessages(records: ChatMessage[]): LoadedMessage[] {
   const out: LoadedMessage[] = [];
   let turn = 0;
-  let pendingAssistantIdx = -1;
+  // Index in `out` of the assistant message accumulating the current agent
+  // turn. A turn spans many assistant records (model call → tools → model
+  // call → … → conclusion); merging them into one message makes a loaded
+  // session render identically to a live turn. Reset by any user message.
+  let curAssistantIdx = -1;
+  let toolFallback = 0;
   for (const rec of records) {
     if (rec.role === "system") continue;
     if (rec.role === "user") {
       out.push({ kind: "user", text: rec.content ?? "" });
-      pendingAssistantIdx = -1;
+      curAssistantIdx = -1;
       continue;
     }
     if (rec.role === "assistant") {
-      turn++;
-      const segments: LoadedSegment[] = [];
-      if (rec.reasoning_content) segments.push({ kind: "reasoning", text: rec.reasoning_content });
-      if (rec.content) segments.push({ kind: "text", text: rec.content });
+      const segs: LoadedSegment[] = [];
+      if (rec.reasoning_content) segs.push({ kind: "reasoning", text: rec.reasoning_content });
+      if (rec.content) segs.push({ kind: "text", text: rec.content });
       if (rec.tool_calls) {
-        for (let i = 0; i < rec.tool_calls.length; i++) {
-          const tc = rec.tool_calls[i];
+        for (const tc of rec.tool_calls) {
           if (!tc) continue;
-          segments.push({
+          segs.push({
             kind: "tool",
-            callId: tc.id ?? `tc-r-${turn}-${i}`,
+            callId: tc.id ?? `tc-r-${toolFallback++}`,
             name: tc.function?.name ?? "",
             args: tc.function?.arguments ?? "",
           });
         }
       }
-      out.push({ kind: "assistant", turn, segments, pending: false });
-      pendingAssistantIdx = out.length - 1;
+      const host = curAssistantIdx >= 0 ? out[curAssistantIdx] : undefined;
+      if (host?.kind === "assistant") {
+        host.segments.push(...segs);
+      } else {
+        turn++;
+        out.push({ kind: "assistant", turn, segments: segs, pending: false });
+        curAssistantIdx = out.length - 1;
+      }
       continue;
     }
     if (rec.role === "tool") {
-      if (pendingAssistantIdx < 0) continue;
-      const host = out[pendingAssistantIdx];
+      const host = curAssistantIdx >= 0 ? out[curAssistantIdx] : undefined;
       if (host?.kind !== "assistant") continue;
       const callId = rec.tool_call_id;
       if (!callId) continue;

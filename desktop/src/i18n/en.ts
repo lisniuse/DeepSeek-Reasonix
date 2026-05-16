@@ -157,11 +157,11 @@ export const en = {
     budget: "Budget cap",
     budgetHint: "USD per session. Empty = no cap.",
     budgetPlaceholder: "no cap",
-    autoExpandCards: "Auto-expand thinking & tools",
-    autoExpandCardsHint:
-      "Expand reasoning and tool-call cards by default instead of collapsing them.",
-    autoExpandOn: "on",
-    autoExpandOff: "off",
+    collapseProcess: "Collapse process after conclusion",
+    collapseProcessHint:
+      "Once the conclusion is out, fold the thinking & tool-call process into an expandable preview.",
+    collapseProcessOn: "on",
+    collapseProcessOff: "off",
     baseUrl: "DeepSeek base URL",
     baseUrlHint: "Override only if using a proxy. Empty = official endpoint. Restart required.",
     workspace: "Workspace",
@@ -411,6 +411,8 @@ export const en = {
   cards: {
     reasoningName: "Thinking",
     reasoningComplete: "Complete",
+    peekExpand: "Show process",
+    peekCollapse: "Hide process",
     shellAwaiting: "Waiting approval",
     shellRunning: "Running",
     shellDone: "done",

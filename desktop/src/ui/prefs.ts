@@ -1,19 +1,21 @@
 import { useSyncExternalStore } from "react";
 
-// Whether reasoning and tool-call cards expand by default. Kept in a
+// Whether the thinking + tool-call process auto-collapses into a peek
+// container once the turn's conclusion has been output. Kept in a
 // module-level store so every per-tab thread instance stays in sync — see
 // sidebar.tsx for why localStorage alone can't bridge sibling instances.
-const STORAGE_KEY = "reasonix.autoExpandCards";
+const STORAGE_KEY = "reasonix.collapseProcessAfterDone";
 
 function load(): boolean {
   try {
-    return localStorage.getItem(STORAGE_KEY) === "1";
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw === null ? true : raw === "1";
   } catch {
-    return false;
+    return true;
   }
 }
 
-let autoExpandCards = load();
+let collapseProcess = load();
 const listeners = new Set<() => void>();
 
 function subscribe(cb: () => void): () => void {
@@ -23,13 +25,13 @@ function subscribe(cb: () => void): () => void {
   };
 }
 
-export function getAutoExpandCards(): boolean {
-  return autoExpandCards;
+export function getCollapseProcess(): boolean {
+  return collapseProcess;
 }
 
-export function setAutoExpandCards(value: boolean): void {
-  if (value === autoExpandCards) return;
-  autoExpandCards = value;
+export function setCollapseProcess(value: boolean): void {
+  if (value === collapseProcess) return;
+  collapseProcess = value;
   try {
     localStorage.setItem(STORAGE_KEY, value ? "1" : "0");
   } catch {
@@ -38,6 +40,6 @@ export function setAutoExpandCards(value: boolean): void {
   for (const cb of listeners) cb();
 }
 
-export function useAutoExpandCards(): boolean {
-  return useSyncExternalStore(subscribe, getAutoExpandCards);
+export function useCollapseProcess(): boolean {
+  return useSyncExternalStore(subscribe, getCollapseProcess);
 }

@@ -1,8 +1,9 @@
-import { memo, type ReactNode } from "react";
+import { memo, type ReactNode, useState } from "react";
 import { I } from "../icons";
 import { t, useLang } from "../i18n";
 import type { AssistantSegment, ActivePlan, PendingPlan, PendingCheckpoint, PendingRevision, PendingConfirm, PendingChoice, SkillOrigin } from "../App";
 import { AssistantText, PlanCardView, ReasoningCard, ShellCard, ToolCard, type PlanItem } from "./cards";
+import { useCollapseProcess } from "./prefs";
 import { ApprovalCard, TaskCard, type TaskStepView } from "./extra-cards";
 
 export function TurnDivider({ label }: { label: string }) {
@@ -43,6 +44,28 @@ export const UserMsg = memo(function UserMsg({
   );
 });
 
+/** Folds the thinking + tool-call process (everything before the conclusion)
+ *  into one fixed-height, gradient-faded container with a single toggle. */
+function ProcessGroup({ children }: { children: ReactNode }) {
+  useLang();
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className={expanded ? "proc-group is-open" : "proc-group"}>
+      <div className="proc-group-inner">{children}</div>
+      <button
+        type="button"
+        className="proc-group-toggle"
+        onClick={() => setExpanded((v) => !v)}
+      >
+        <span className="chev">
+          <I.chev size={12} />
+        </span>
+        <span>{expanded ? t("cards.peekCollapse") : t("cards.peekExpand")}</span>
+      </button>
+    </div>
+  );
+}
+
 export const AssistantMsg = memo(function AssistantMsg({
   segments,
   pending,
@@ -62,6 +85,82 @@ export const AssistantMsg = memo(function AssistantMsg({
   onAlwaysAllowConfirm: (id: number, prefix: string) => void;
   pendingConfirms: PendingConfirm[];
 }) {
+  const collapseProcess = useCollapseProcess();
+
+  const renderSegment = (s: AssistantSegment, i: number): ReactNode => {
+    if (s.kind === "text") {
+      if (!s.text.trim()) return null;
+      return <AssistantText key={i} text={s.text} />;
+    }
+    if (s.kind === "reasoning") {
+      return (
+        <ReasoningCard
+          key={i}
+          text={s.text}
+          streaming={pending && i === segments.length - 1}
+        />
+      );
+    }
+    // tool segment
+    const pendingConfirm =
+      (s.name === "run_command" || s.name === "run_background") && s.result === undefined
+        ? pendingConfirms.find((c) => c.command === extractCommand(s.args))
+        : undefined;
+    if (s.name === "run_command" || s.name === "run_background") {
+      const cmd = extractCommand(s.args) ?? s.args;
+      const state: "await" | "running" | "done" | "failed" =
+        s.result === undefined
+          ? pendingConfirm
+            ? "await"
+            : "running"
+          : s.ok === false
+            ? "failed"
+            : "done";
+      return (
+        <ShellCard
+          key={i}
+          command={cmd}
+          output={s.result}
+          state={state}
+          durationMs={s.durationMs}
+          onApprove={pendingConfirm ? () => onApproveConfirm(pendingConfirm.id) : undefined}
+          onReject={pendingConfirm ? () => onRejectConfirm(pendingConfirm.id) : undefined}
+          onAlwaysAllow={
+            pendingConfirm
+              ? () => {
+                  const prefix = cmd.split(/\s+/)[0] ?? cmd;
+                  onAlwaysAllowConfirm(pendingConfirm.id, `${prefix} *`);
+                }
+              : undefined
+          }
+        />
+      );
+    }
+    return (
+      <ToolCard
+        key={i}
+        name={s.name}
+        args={s.args}
+        result={s.result}
+        ok={s.ok}
+        durationMs={s.durationMs}
+      />
+    );
+  };
+
+  // The conclusion is the last non-empty text segment; everything before it is
+  // "process". Once the turn is done, fold that process into one peek group.
+  let conclusionIdx = -1;
+  for (let i = segments.length - 1; i >= 0; i--) {
+    const s = segments[i];
+    if (s && s.kind === "text" && s.text.trim()) {
+      conclusionIdx = i;
+      break;
+    }
+  }
+  const grouped = collapseProcess && !pending && conclusionIdx > 0;
+  const nodes = segments.map((s, i) => renderSegment(s, i));
+
   return (
     <div className="msg assistant">
       <div className="avatar">{t("thread.avatarDS")}</div>
@@ -71,66 +170,14 @@ export const AssistantMsg = memo(function AssistantMsg({
           {model ? <span className="model">{model}</span> : null}
           {time ? <span className="time">{time}</span> : null}
         </div>
-        {segments.map((s, i) => {
-          if (s.kind === "text") {
-            if (!s.text.trim()) return null;
-            return <AssistantText key={i} text={s.text} />;
-          }
-          if (s.kind === "reasoning") {
-            return (
-              <ReasoningCard
-                key={i}
-                text={s.text}
-                streaming={pending && i === segments.length - 1}
-              />
-            );
-          }
-          // tool segment
-          const pendingConfirm =
-            (s.name === "run_command" || s.name === "run_background") && s.result === undefined
-              ? pendingConfirms.find((c) => c.command === extractCommand(s.args))
-              : undefined;
-          if (s.name === "run_command" || s.name === "run_background") {
-            const cmd = extractCommand(s.args) ?? s.args;
-            const state: "await" | "running" | "done" | "failed" =
-              s.result === undefined
-                ? pendingConfirm
-                  ? "await"
-                  : "running"
-                : s.ok === false
-                  ? "failed"
-                  : "done";
-            return (
-              <ShellCard
-                key={i}
-                command={cmd}
-                output={s.result}
-                state={state}
-                durationMs={s.durationMs}
-                onApprove={pendingConfirm ? () => onApproveConfirm(pendingConfirm.id) : undefined}
-                onReject={pendingConfirm ? () => onRejectConfirm(pendingConfirm.id) : undefined}
-                onAlwaysAllow={
-                  pendingConfirm
-                    ? () => {
-                        const prefix = cmd.split(/\s+/)[0] ?? cmd;
-                        onAlwaysAllowConfirm(pendingConfirm.id, `${prefix} *`);
-                      }
-                    : undefined
-                }
-              />
-            );
-          }
-          return (
-            <ToolCard
-              key={i}
-              name={s.name}
-              args={s.args}
-              result={s.result}
-              ok={s.ok}
-              durationMs={s.durationMs}
-            />
-          );
-        })}
+        {grouped ? (
+          <>
+            <ProcessGroup>{nodes.slice(0, conclusionIdx)}</ProcessGroup>
+            {nodes.slice(conclusionIdx)}
+          </>
+        ) : (
+          nodes
+        )}
       </div>
     </div>
   );

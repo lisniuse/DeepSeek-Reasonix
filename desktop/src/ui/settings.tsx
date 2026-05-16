@@ -12,7 +12,7 @@ import {
   THEME,
   type Theme,
 } from "../theme";
-import { setAutoExpandCards, useAutoExpandCards } from "./prefs";
+import { setCollapseProcess, useCollapseProcess } from "./prefs";
 
 export type PageId =
   | "general"
@@ -184,7 +184,7 @@ function PageGeneral({
 }) {
   const [editorDraft, setEditorDraft] = useState(settings.editor ?? "");
   const lang = useLang();
-  const autoExpand = useAutoExpandCards();
+  const collapseProcess = useCollapseProcess();
   return (
     <>
       <section className="section">
@@ -371,15 +371,19 @@ function PageGeneral({
         </div>
         <div className="setting-row">
           <div className="l">
-            <div className="n">{t("settings.autoExpandCards")}</div>
-            <div className="h">{t("settings.autoExpandCardsHint")}</div>
+            <div className="n">{t("settings.collapseProcess")}</div>
+            <div className="h">{t("settings.collapseProcessHint")}</div>
           </div>
           <div className="seg-ctrl">
-            <button type="button" data-on={autoExpand} onClick={() => setAutoExpandCards(true)}>
-              {t("settings.autoExpandOn")}
+            <button type="button" data-on={collapseProcess} onClick={() => setCollapseProcess(true)}>
+              {t("settings.collapseProcessOn")}
             </button>
-            <button type="button" data-on={!autoExpand} onClick={() => setAutoExpandCards(false)}>
-              {t("settings.autoExpandOff")}
+            <button
+              type="button"
+              data-on={!collapseProcess}
+              onClick={() => setCollapseProcess(false)}
+            >
+              {t("settings.collapseProcessOff")}
             </button>
           </div>
         </div>
