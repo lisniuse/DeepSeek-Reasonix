@@ -1773,6 +1773,7 @@ function TabRuntime({
           open={wdOpen}
           onClose={() => setWdOpen(false)}
           recent={state.settings?.recentWorkspaces ?? []}
+          openTabDirs={tabsList.flatMap((t) => (t.workspaceDir ? [t.workspaceDir] : []))}
           current={state.settings?.workspaceDir}
           anchor={wdAnchor}
           onPick={(path) => {

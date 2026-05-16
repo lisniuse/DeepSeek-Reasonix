@@ -18,6 +18,7 @@ export function WorkdirPop({
   open,
   onClose,
   recent,
+  openTabDirs,
   current,
   anchor,
   onPick,
@@ -26,6 +27,7 @@ export function WorkdirPop({
   open: boolean;
   onClose: () => void;
   recent: string[];
+  openTabDirs?: string[];
   current?: string;
   anchor?: Anchor;
   onPick: (path: string) => void;
@@ -43,13 +45,18 @@ export function WorkdirPop({
   }, [open]);
 
   const items = useMemo(() => {
-    const list = recent.length > 0 ? recent : current ? [current] : [];
+    // Merge recent + open-tab dirs so newly opened workspaces appear immediately
+    // (before the kernel's $settings round-trip updates recentWorkspaces).
+    const norm = (p: string) => p.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+    const combined = [...recent];
+    for (const p of openTabDirs ?? []) {
+      if (!combined.some((r) => norm(r) === norm(p))) combined.push(p);
+    }
+    const list = combined.length > 0 ? combined : current ? [current] : [];
     const hidden = loadHiddenWs();
-    // Deduplicate by normalised path (case-insensitive, slash-unified) — keeps first occurrence.
-    // Also skip workspaces the user removed from the sidebar (hiddenWorkspaces).
     const seen = new Set<string>();
     const deduped = list.filter((p) => {
-      const key = p.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+      const key = norm(p);
       if (seen.has(key) || hidden.has(key)) return false;
       seen.add(key);
       return true;
@@ -57,7 +64,7 @@ export function WorkdirPop({
     const q = query.trim().toLowerCase();
     if (!q) return deduped;
     return deduped.filter((p) => p.toLowerCase().includes(q));
-  }, [recent, current, query]);
+  }, [recent, openTabDirs, current, query]);
 
   if (!open) return null;
 
