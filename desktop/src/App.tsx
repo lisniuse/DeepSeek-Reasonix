@@ -899,6 +899,7 @@ interface TabRuntimeProps {
   setActiveTabId: (id: string) => void;
   onSaveScroll: (sessionName: string, scrollTop: number) => void;
   getScrollPosition: (sessionName: string) => number | null;
+  markPendingLoad: (name: string) => void;
 }
 
 function TabRuntime({
@@ -934,6 +935,7 @@ function TabRuntime({
   onBusyChange,
   onSaveScroll,
   getScrollPosition,
+  markPendingLoad,
 }: TabRuntimeProps) {
   const [state, dispatch] = useReducer(reduce, {
     ready: false,
@@ -1484,7 +1486,7 @@ function TabRuntime({
           activeSession={state.currentSession}
           onActivateTab={setActiveTabId}
           onNewChat={newChat}
-          onOpenSession={(name) => sendRpc({ cmd: "session_load", name })}
+          onOpenSession={(name) => { markPendingLoad(name); sendRpc({ cmd: "session_load", name }); }}
           onNewSession={(workspaceDir) => onNewTab(workspaceDir)}
           onCloseTab={onAbortTabById}
           onDeleteSession={(name) => {
@@ -2382,9 +2384,14 @@ export function App() {
 
   // ── Session + scroll persistence ──────────────────────────────────────────
   const hasRestoredSessionRef = useRef(false);
+  const pendingLoadNames = useRef<Set<string>>(new Set());
   const scrollPositionsRef = useRef<Map<string, number>>(new Map(
     Object.entries((() => { try { return JSON.parse(localStorage.getItem("reasonix.scrollPositions") ?? "{}") as Record<string, number>; } catch { return {}; } })()),
   ));
+  const markPendingLoad = useCallback((name: string) => {
+    pendingLoadNames.current.add(name);
+  }, []);
+
   const saveScrollPosition = useCallback((sessionName: string, scrollTop: number) => {
     scrollPositionsRef.current.set(sessionName, scrollTop);
     localStorage.setItem("reasonix.scrollPositions", JSON.stringify(Object.fromEntries(scrollPositionsRef.current)));
@@ -2537,14 +2544,19 @@ export function App() {
                 hasRestoredSessionRef.current = true;
                 willAutoRestore = !!localStorage.getItem("reasonix.lastSession");
               }
+              // Only show loading indicator when a session_load is pending for the
+              // session this tab was opened for — avoids false positive on new_chat
+              // where the kernel also mints a placeholder session name.
+              const shouldLoad = willAutoRestore || (!!ev.session && pendingLoadNames.current.has(ev.session));
               setTabs((prev) =>
                 prev.some((t) => t.id === tabId)
                   ? prev
-                  : [...prev, { id: tabId, workspaceDir: ev.workspaceDir, sessionName: willAutoRestore ? undefined : ev.session, loadingSession: !!ev.session }],
+                  : [...prev, { id: tabId, workspaceDir: ev.workspaceDir, sessionName: willAutoRestore ? undefined : ev.session, loadingSession: shouldLoad }],
               );
               setActiveTabId(tabId);
               if (willAutoRestore) {
                 const lastSession = localStorage.getItem("reasonix.lastSession")!;
+                pendingLoadNames.current.add(lastSession);
                 setTimeout(() => {
                   invoke("rpc_send", {
                     line: JSON.stringify({ tabId, cmd: "session_load", name: lastSession }),
@@ -2590,6 +2602,7 @@ export function App() {
 
             // Keep tabs[].sessionName in sync so lastSession saves the correct name
             if (ev.type === "$session_loaded" && tabId) {
+              pendingLoadNames.current.delete(ev.name);
               setTabs((prev) =>
                 prev.map((t) => (t.id === tabId ? { ...t, sessionName: ev.name, loadingSession: false } : t)),
               );
@@ -2769,6 +2782,7 @@ export function App() {
           }
           onSaveScroll={saveScrollPosition}
           getScrollPosition={getScrollPosition}
+          markPendingLoad={markPendingLoad}
         />
       ))}
     </>
