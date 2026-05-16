@@ -271,6 +271,7 @@ export const en = {
       bannerBold: "auto-approved",
       banner2: " without asking.",
       switchBack: "Switch to Review",
+      toast: "All operations will be auto-approved without asking",
     },
     errorLabel: "Error",
     jumpToBottom: "Jump to bottom",

@@ -278,6 +278,7 @@ export const zhCN: typeof en = {
       bannerBold: "自动批准",
       banner2: "，不会再询问。",
       switchBack: "切回 Review",
+      toast: "所有操作将自动批准，不再询问",
     },
     errorLabel: "错误",
     jumpToBottom: "回到底部",
