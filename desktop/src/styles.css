@@ -1234,14 +1234,23 @@ html[data-platform="macos"] .titlebar .tb-left {
 .msg-text p:last-child {
   margin-bottom: 0;
 }
-.msg-text code,
-.markdown code {
+.msg-text :not(pre) > code,
+.markdown :not(pre) > code {
   font-family: "Geist Mono", monospace;
   background: var(--card);
   border: 1px solid var(--border);
   padding: 1px 6px;
   border-radius: 4px;
   font-size: 0.875em;
+}
+.msg-text pre code,
+.markdown pre code {
+  font-family: inherit;
+  background: transparent;
+  border: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
 }
 .msg-text strong,
 .markdown strong {
@@ -1375,6 +1384,20 @@ html[data-platform="macos"] .titlebar .tb-left {
 .msg-text tbody tr:hover,
 .markdown tbody tr:hover {
   background: var(--card-hover);
+}
+
+.markdown pre {
+  margin: 14px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-2);
+  font-family: "Geist Mono", monospace;
+  font-size: 13px;
+  line-height: 1.62;
+  overflow-x: auto;
+  white-space: pre;
+  color: var(--fg);
 }
 
 .markdown .codeblock {
