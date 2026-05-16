@@ -62,13 +62,20 @@ fn resolve_cli(app: &AppHandle) -> Result<(String, Vec<String>)> {
         let node_name = if cfg!(windows) { "node.exe" } else { "node" };
         let node_path = res_dir.join(node_name);
         let cli_path = res_dir.join("dist").join("cli").join("index.js");
-        let is_real_node = node_path
-            .metadata()
-            .map(|m| m.len() > 1_000_000)
-            .unwrap_or(false);
-        if is_real_node && cli_path.exists() {
+        if cli_path.exists() {
+            let node = if node_path
+                .metadata()
+                .map(|m| m.len() > 1_000_000)
+                .unwrap_or(false)
+            {
+                node_path.to_string_lossy().into_owned()
+            } else {
+                find_real_node()
+                    .map(|p| p.to_string_lossy().into_owned())
+                    .context("node not found")?
+            };
             return Ok((
-                node_path.to_string_lossy().into_owned(),
+                node,
                 vec![cli_path.to_string_lossy().into_owned(), "desktop".to_string()],
             ));
         }
