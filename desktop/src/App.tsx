@@ -2679,7 +2679,7 @@ export function App() {
         if (!cancelled) console.error("rpc_spawn failed", err);
       }
     };
-    void setup();
+    setup().catch((err) => console.error("rpc setup failed", err));
     return () => {
       cancelled = true;
       for (const c of cleanups) c();
