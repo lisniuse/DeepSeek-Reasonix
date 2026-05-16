@@ -1,5 +1,6 @@
-import { invoke } from "@tauri-apps/api/core";
+﻿import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { type Update, check } from "@tauri-apps/plugin-updater";
@@ -166,6 +167,7 @@ export type SessionInfo = {
   messageCount: number;
   mtime: string;
   summary?: string;
+  workspace: string;
 };
 
 export type Settings = {
@@ -873,8 +875,11 @@ interface TabRuntimeProps {
   installUpdate: () => void;
   dismissUpdate: () => void;
   registerDispatch: (tabId: string, d: TabDispatcher | null) => void;
-  onNewTab: () => void;
+  onNewTab: (workspaceDir?: string) => void;
   onCloseTab: () => void;
+  onCloseTabById: (id: string) => void;
+  onAbortTabById: (id: string) => void;
+  onClearTabSession: (sessionName: string) => void;
   canCloseTab: boolean;
   theme: Theme;
   onSetTheme: (theme: Theme) => void;
@@ -888,9 +893,12 @@ interface TabRuntimeProps {
   onToggleSide: () => void;
   onToggleCtx: () => void;
   onToggleCurrency: () => void;
-  tabsList: { id: string; workspaceDir?: string }[];
+  tabsList: { id: string; workspaceDir?: string; sessionName?: string; busy?: boolean }[];
+  onBusyChange: (busy: boolean) => void;
   activeTabId: string;
   setActiveTabId: (id: string) => void;
+  onSaveScroll: (sessionName: string, scrollTop: number) => void;
+  getScrollPosition: (sessionName: string) => number | null;
 }
 
 function TabRuntime({
@@ -904,6 +912,9 @@ function TabRuntime({
   registerDispatch,
   onNewTab,
   onCloseTab,
+  onCloseTabById,
+  onAbortTabById,
+  onClearTabSession,
   canCloseTab,
   theme,
   onSetTheme,
@@ -920,6 +931,9 @@ function TabRuntime({
   tabsList,
   activeTabId,
   setActiveTabId,
+  onBusyChange,
+  onSaveScroll,
+  getScrollPosition,
 }: TabRuntimeProps) {
   const [state, dispatch] = useReducer(reduce, {
     ready: false,
@@ -950,7 +964,7 @@ function TabRuntime({
   });
   useLang();
   const [draft, setDraft] = useState("");
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ msg: string; yolo?: boolean } | null>(null);
   const [splashOn, setSplashOn] = useState<boolean>(() => shouldShowSplash());
   const [wdOpen, setWdOpen] = useState(false);
   const [wdAnchor, setWdAnchor] = useState<
@@ -972,6 +986,42 @@ function TabRuntime({
     registerDispatch(tabId, dispatch);
     return () => registerDispatch(tabId, null);
   }, [tabId, registerDispatch]);
+
+  useEffect(() => {
+    onBusyChange(state.busy);
+  }, [state.busy, onBusyChange]);
+
+  // Save scroll position (debounced) whenever the user scrolls
+  useEffect(() => {
+    const el = threadRef.current;
+    if (!el || !state.currentSession) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const handleScroll = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        onSaveScroll(state.currentSession!, el.scrollTop);
+      }, 200);
+    };
+    el.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      el.removeEventListener("scroll", handleScroll);
+      clearTimeout(timer);
+    };
+  }, [state.currentSession, onSaveScroll]);
+
+  // Restore scroll position when a session is loaded
+  useEffect(() => {
+    if (!state.currentSession) return;
+    const saved = getScrollPosition(state.currentSession);
+    if (!saved || saved < 50) return; // near-bottom restored by auto-scroll
+    const el = threadRef.current;
+    if (!el) return;
+    const id = setTimeout(() => {
+      el.scrollTop = saved;
+    }, 80); // run after useAutoScroll's 50 ms initial-scroll-to-bottom
+    return () => clearTimeout(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.currentSession]);
 
   const sendRpc = useCallback(
     (cmd: OutgoingCommand) => {
@@ -1011,9 +1061,10 @@ function TabRuntime({
     (spec: string) => sendRpc({ cmd: "mcp_specs_remove", spec }),
     [sendRpc],
   );
+  // new_chat now spawns a separate agent/tab — it must NOT clear the
+  // current tab's thread (that tab keeps its own running session).
   const newChat = useCallback(() => {
     sendRpc({ cmd: "new_chat" });
-    dispatch({ t: "clear" });
   }, [sendRpc]);
 
   const pickWorkspace = useCallback(async () => {
@@ -1032,9 +1083,9 @@ function TabRuntime({
     }
   }, [saveSettings, state.settings?.workspaceDir]);
 
-  const flashToast = useCallback((msg: string) => {
-    setToast(msg);
-    window.setTimeout(() => setToast(null), 1600);
+  const flashToast = useCallback((msg: string, opts?: { yolo?: boolean; duration?: number }) => {
+    setToast({ msg, yolo: opts?.yolo });
+    window.setTimeout(() => setToast(null), opts?.duration ?? 1600);
   }, []);
 
   // Drag-and-drop: dropping files/folders onto the window inserts them
@@ -1427,26 +1478,21 @@ function TabRuntime({
           hasMessages={state.messages.length > 0}
         />
 
-        <TabBar
-          tabs={tabsList}
-          activeId={activeTabId}
-          setActive={setActiveTabId}
-          onClose={(id) => {
-            if (tabsList.length <= 1) return;
-            invoke("rpc_send", {
-              line: JSON.stringify({ cmd: "tab_close", tabId: id }),
-            }).catch((err) => console.error("tab_close failed", err));
-          }}
-          onNew={onNewTab}
-          singleTab={tabsList.length <= 1}
-        />
-
         <Sidebar
           sessions={state.sessions}
-          activeName={state.currentSession}
+          openTabs={tabsList}
+          activeTabId={activeTabId}
+          activeSession={state.currentSession}
+          onActivateTab={setActiveTabId}
           onNewChat={newChat}
-          onLoadSession={(name) => sendRpc({ cmd: "session_load", name })}
-          onDeleteSession={(name) => sendRpc({ cmd: "session_delete", name })}
+          onOpenSession={(name) => sendRpc({ cmd: "session_load", name })}
+          onNewSession={(workspaceDir) => onNewTab(workspaceDir)}
+          onCloseTab={onAbortTabById}
+          onDeleteSession={(name) => {
+            sendRpc({ cmd: "session_delete", name });
+            onClearTabSession(name);
+          }}
+          onAddWorkspace={pickWorkspace}
           onOpenSettings={() => openSettingsAt("general")}
           onOpenRules={() => openSettingsAt("rules")}
           onOpenCommands={() => palette.setOpen(true)}
@@ -1475,28 +1521,7 @@ function TabRuntime({
                   setWdOpen(true);
                 }}
               />
-              {state.settings?.editMode === "yolo" ? (
-                <div className="mode-banner">
-                  <span className="mb-pip" />
-                  <I.warn size={13} />
-                  <span className="mb-tag">YOLO</span>
-                  <span className="mb-msg">
-                    {t("app.yolo.banner1")}
-                    <b>{t("app.yolo.bannerBold")}</b>
-                    {t("app.yolo.banner2")}
-                  </span>
-                  <span className="grow" />
-                  <button
-                    type="button"
-                    className="mb-btn"
-                    onClick={() => saveSettings({ editMode: "review" })}
-                  >
-                    {t("app.yolo.switchBack")}
-                  </button>
-                </div>
-              ) : null}
-
-              <div className="thread" ref={threadRef}>
+<div className="thread" ref={threadRef}>
                 <div className="thread-inner" ref={threadInnerRef}>
                   {pendingUpdate ? (
                     <UpdateBanner
@@ -1637,8 +1662,8 @@ function TabRuntime({
                       style={{
                         padding: 12,
                         color: "var(--muted)",
-                        fontFamily: "IBM Plex Mono, monospace",
-                        fontSize: 11,
+                        fontFamily: "inherit",
+                        fontSize: 14,
                       }}
                     >
                       {t("app.connecting")}
@@ -1682,7 +1707,11 @@ function TabRuntime({
                 editMode={state.settings?.editMode ?? "review"}
                 onEditModeChange={(mode) => {
                   saveSettings({ editMode: mode });
-                  flashToast(t("app.toast.modeSwitched", { mode: mode.toUpperCase() }));
+                  if (mode === "yolo") {
+                    flashToast(t("app.yolo.toast"), { yolo: true, duration: 3000 });
+                  } else {
+                    flashToast(t("app.toast.modeSwitched", { mode: mode.toUpperCase() }));
+                  }
                 }}
                 workspaceDir={state.settings?.workspaceDir}
                 slashCommands={slashCommands}
@@ -1724,10 +1753,6 @@ function TabRuntime({
           onToggleTheme={onToggleTheme}
           onToggleCurrency={onToggleCurrency}
           onOpenSettings={() => openSettingsAt("general")}
-          onOpenWorkdir={(anchor) => {
-            setWdAnchor(anchor);
-            setWdOpen(true);
-          }}
         />
 
         <CommandPalette
@@ -1787,6 +1812,37 @@ function TabRuntime({
   );
 }
 
+function WinMinimize() {
+  return (
+    <svg width="10" height="1" viewBox="0 0 10 1" aria-hidden>
+      <rect width="10" height="1" fill="currentColor" />
+    </svg>
+  );
+}
+function WinMaximize() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
+      <rect x="0.5" y="0.5" width="9" height="9" fill="none" stroke="currentColor" strokeWidth="1" />
+    </svg>
+  );
+}
+function WinRestore() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
+      <rect x="2.5" y="0.5" width="7" height="7" fill="none" stroke="currentColor" strokeWidth="1" />
+      <rect x="0.5" y="2.5" width="7" height="7" fill="var(--bg-2, #eee)" stroke="currentColor" strokeWidth="1" />
+    </svg>
+  );
+}
+function WinClose() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
+      <line x1="0.5" y1="0.5" x2="9.5" y2="9.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      <line x1="9.5" y1="0.5" x2="0.5" y2="9.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function TitleBar({
   session,
   model,
@@ -1814,7 +1870,19 @@ function TitleBar({
 }) {
   useLang();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isMaximized, setIsMaximized] = useState(false);
   const moreWrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const win = getCurrentWindow();
+    win.isMaximized().then(setIsMaximized);
+    let unlisten: (() => void) | undefined;
+    win.listen("tauri://resize", async () => {
+      setIsMaximized(await win.isMaximized());
+    }).then((fn) => { unlisten = fn; });
+    return () => unlisten?.();
+  }, []);
+
   useEffect(() => {
     if (!menuOpen) return;
     const onDown = (e: MouseEvent) => {
@@ -1824,19 +1892,13 @@ function TitleBar({
     window.addEventListener("mousedown", onDown);
     return () => window.removeEventListener("mousedown", onDown);
   }, [menuOpen]);
+
+  const win = getCurrentWindow();
+
   return (
     <header className="titlebar">
-      <div className="brand">
-        <span className="mark" />
-        <span>Reasonix</span>
-      </div>
-      <div className="crumbs">
-        <span>{session}</span>
-        <span className="sep">/</span>
-        <span className="cur">{model ?? "—"}</span>
-      </div>
-      <span className="grow" />
-      <div className="actions">
+      {/* left: sidebar toggle + brand */}
+      <div className="tb-left">
         <button
           type="button"
           className="iconbtn"
@@ -1846,6 +1908,23 @@ function TitleBar({
         >
           <I.panel_l size={14} />
         </button>
+        <div className="brand">
+          <span className="mark" />
+          <span className="brand-name">Reasonix</span>
+        </div>
+        {session && (
+          <div className="crumbs">
+            <span className="sep">/</span>
+            <span className="cur">{model ?? "—"}</span>
+          </div>
+        )}
+      </div>
+
+      {/* center: drag region */}
+      <span className="grow" />
+
+      {/* right: panel toggles + more + window controls */}
+      <div className="tb-right">
         <button
           type="button"
           className="iconbtn"
@@ -1855,6 +1934,7 @@ function TitleBar({
         >
           <I.panel_r size={14} />
         </button>
+
         <div ref={moreWrapRef} style={{ position: "relative" }}>
           <button
             type="button"
@@ -1867,138 +1947,65 @@ function TitleBar({
           {menuOpen ? (
             <div
               className="popup"
-              style={{
-                top: "calc(100% + 6px)",
-                right: 0,
-                left: "auto",
-                bottom: "auto",
-                width: 220,
-              }}
+              style={{ top: "calc(100% + 6px)", right: 0, left: "auto", bottom: "auto", width: 220 }}
             >
               <div className="popup-list">
-                <div
-                  className="popup-item"
-                  onClick={() => {
-                    onOpenCommands();
-                    setMenuOpen(false);
-                  }}
-                >
-                  <span className="ico">
-                    <I.search size={12} />
-                  </span>
-                  <div className="nm">
-                    <span>{t("app.titlebar.commandPalette")}</span>
-                  </div>
+                <div className="popup-item" onClick={() => { onOpenCommands(); setMenuOpen(false); }}>
+                  <span className="ico"><I.search size={12} /></span>
+                  <div className="nm"><span>{t("app.titlebar.commandPalette")}</span></div>
                   <span className="kb">⌘K</span>
                 </div>
                 <div
                   className="popup-item"
-                  onClick={() => {
-                    if (hasMessages) onExport();
-                    setMenuOpen(false);
-                  }}
-                  data-active={!hasMessages ? undefined : false}
+                  onClick={() => { if (hasMessages) onExport(); setMenuOpen(false); }}
                   style={{ opacity: hasMessages ? 1 : 0.5 }}
                 >
-                  <span className="ico">
-                    <I.download size={12} />
-                  </span>
-                  <div className="nm">
-                    <span>{t("app.titlebar.exportMd")}</span>
-                  </div>
+                  <span className="ico"><I.download size={12} /></span>
+                  <div className="nm"><span>{t("app.titlebar.exportMd")}</span></div>
                 </div>
-                <div
-                  className="popup-item"
-                  onClick={() => {
-                    onClear();
-                    setMenuOpen(false);
-                  }}
-                >
-                  <span className="ico">
-                    <I.x size={12} />
-                  </span>
-                  <div className="nm">
-                    <span>{t("app.titlebar.clearChat")}</span>
-                  </div>
+                <div className="popup-item" onClick={() => { onClear(); setMenuOpen(false); }}>
+                  <span className="ico"><I.x size={12} /></span>
+                  <div className="nm"><span>{t("app.titlebar.clearChat")}</span></div>
                 </div>
-                <div
-                  className="popup-item"
-                  onClick={() => {
-                    onOpenSettings();
-                    setMenuOpen(false);
-                  }}
-                >
-                  <span className="ico">
-                    <I.cog size={12} />
-                  </span>
-                  <div className="nm">
-                    <span>{t("app.titlebar.settings")}</span>
-                  </div>
+                <div className="popup-item" onClick={() => { onOpenSettings(); setMenuOpen(false); }}>
+                  <span className="ico"><I.cog size={12} /></span>
+                  <div className="nm"><span>{t("app.titlebar.settings")}</span></div>
                   <span className="kb">⌘,</span>
                 </div>
               </div>
             </div>
           ) : null}
         </div>
+
+        {/* window controls — use onMouseDown+stopPropagation so the drag region doesn't swallow the event */}
+        <div className="win-controls">
+          <button
+            type="button"
+            className="win-ctrl"
+            title="最小化"
+            onMouseDown={(e) => { e.stopPropagation(); win.minimize(); }}
+          >
+            <WinMinimize />
+          </button>
+          <button
+            type="button"
+            className="win-ctrl"
+            title={isMaximized ? "还原" : "最大化"}
+            onMouseDown={(e) => { e.stopPropagation(); win.toggleMaximize(); }}
+          >
+            {isMaximized ? <WinRestore /> : <WinMaximize />}
+          </button>
+          <button
+            type="button"
+            className="win-ctrl close"
+            title="关闭"
+            onMouseDown={(e) => { e.stopPropagation(); win.close(); }}
+          >
+            <WinClose />
+          </button>
+        </div>
       </div>
     </header>
-  );
-}
-
-function TabBar({
-  tabs,
-  activeId,
-  setActive,
-  onClose,
-  onNew,
-  singleTab,
-}: {
-  tabs: { id: string; workspaceDir?: string }[];
-  activeId: string;
-  setActive: (id: string) => void;
-  onClose: (id: string) => void;
-  onNew: () => void;
-  singleTab?: boolean;
-}) {
-  useLang();
-  return (
-    <div className="tabbar">
-      {tabs.map((t) => {
-        const ws = t.workspaceDir ?? "";
-        const label =
-          ws
-            .replace(/[\\/]$/, "")
-            .split(/[\\/]/)
-            .pop() || "workspace";
-        return (
-          <div
-            key={t.id}
-            className="tab"
-            data-active={t.id === activeId}
-            onClick={() => setActive(t.id)}
-            title={ws || label}
-          >
-            <span className="dot" data-state="running" />
-            <span className="label">{label}</span>
-            {!singleTab ? (
-              <span
-                className="close"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onClose(t.id);
-                }}
-              >
-                <I.x size={11} />
-              </span>
-            ) : null}
-          </div>
-        );
-      })}
-      <div className="tab newtab" title={t("app.tab.newTabTitle")} onClick={onNew}>
-        <I.plus size={12} />
-        <span style={{ fontSize: 11, marginLeft: 4 }}>{t("app.tab.newTab")}</span>
-      </div>
-    </div>
   );
 }
 
@@ -2102,7 +2109,7 @@ function EmptyState({
         padding: "48px 16px 24px",
         textAlign: "center",
         color: "var(--muted)",
-        fontFamily: "var(--font-sans, 'IBM Plex Sans', sans-serif)",
+        fontFamily: "var(--font-sans, 'Anthropic Sans', 'Geist', sans-serif)",
       }}
     >
       <div
@@ -2127,32 +2134,22 @@ function EmptyState({
       <div style={{ fontSize: 18, fontWeight: 600, color: "var(--fg)", marginBottom: 4 }}>
         {t("app.empty.welcome")}
       </div>
-      <div style={{ fontSize: 12, marginBottom: 18 }}>
+      <div style={{ fontSize: 14, marginBottom: 18 }}>
         {wsLabel ? (
           <>
             {t("app.empty.currentWorkspace")}
-            <code style={{ fontFamily: "IBM Plex Mono, monospace" }}>{wsLabel}</code>
+            <code style={{ fontFamily: "inherit" }}>{wsLabel}</code>
           </>
         ) : (
           t("app.empty.selectWorkspace")
         )}
       </div>
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 8,
-          justifyContent: "center",
-          maxWidth: 540,
-          margin: "0 auto",
-        }}
-      >
+      <div className="suggestion-pills">
         {suggestions.map((s) => (
           <button
             key={s}
             type="button"
-            className="btn"
-            style={{ fontSize: 11.5 }}
+            className="btn suggestion-pill"
             onClick={() => onPick(s)}
           >
             {s}
@@ -2187,7 +2184,7 @@ function NeedsSetupView({
       }}
     >
       <div style={{ fontSize: 18, fontWeight: 600 }}>{t("app.setup.welcome")}</div>
-      <div style={{ fontSize: 12.5, color: "var(--muted)", maxWidth: 400, textAlign: "center" }}>
+      <div style={{ fontSize: 14, color: "var(--muted)", maxWidth: 400, textAlign: "center" }}>
         {t("app.setup.description")}
       </div>
       <div
@@ -2274,7 +2271,7 @@ function UpdateBanner({
   );
 }
 
-type TabMeta = { id: string; workspaceDir?: string; busy?: boolean };
+type TabMeta = { id: string; workspaceDir?: string; sessionName?: string; busy?: boolean };
 
 export function App() {
   const [tabs, setTabs] = useState<TabMeta[]>([]);
@@ -2287,6 +2284,27 @@ export function App() {
   useEffect(() => {
     tabsRef.current = tabs;
   }, [tabs]);
+
+  // ── Session + scroll persistence ──────────────────────────────────────────
+  const hasRestoredSessionRef = useRef(false);
+  const scrollPositionsRef = useRef<Map<string, number>>(new Map(
+    Object.entries((() => { try { return JSON.parse(localStorage.getItem("reasonix.scrollPositions") ?? "{}") as Record<string, number>; } catch { return {}; } })()),
+  ));
+  const saveScrollPosition = useCallback((sessionName: string, scrollTop: number) => {
+    scrollPositionsRef.current.set(sessionName, scrollTop);
+    localStorage.setItem("reasonix.scrollPositions", JSON.stringify(Object.fromEntries(scrollPositionsRef.current)));
+  }, []);
+  const getScrollPosition = useCallback((sessionName: string): number | null => {
+    return scrollPositionsRef.current.get(sessionName) ?? null;
+  }, []);
+
+  // Save active session name whenever it changes
+  useEffect(() => {
+    const tab = tabs.find((t) => t.id === activeTabId);
+    if (tab?.sessionName) {
+      localStorage.setItem("reasonix.lastSession", tab.sessionName);
+    }
+  }, [activeTabId, tabs]);
 
   const [pendingUpdate, setPendingUpdate] = useState<Update | null>(null);
   const [updateStatus, setUpdateStatus] = useState<"idle" | "installing" | "error">("idle");
@@ -2321,7 +2339,7 @@ export function App() {
   }, [fontScale]);
 
   useEffect(() => {
-    // CSS rules use var(--font-sans); changing it here re-styles every sans surface in one shot. Mono stays put because code/transcripts hardcode "IBM Plex Mono".
+    // CSS rules use var(--font-sans); changing it here re-styles every sans surface in one shot. Mono stays put because code/transcripts hardcode "Geist Mono".
     document.documentElement.style.setProperty("--font-sans", FONT_FAMILY_STACK[fontFamily]);
     localStorage.setItem("reasonix.fontFamily", fontFamily);
   }, [fontFamily]);
@@ -2422,9 +2440,21 @@ export function App() {
               setTabs((prev) =>
                 prev.some((t) => t.id === tabId)
                   ? prev
-                  : [...prev, { id: tabId, workspaceDir: ev.workspaceDir }],
+                  : [...prev, { id: tabId, workspaceDir: ev.workspaceDir, sessionName: ev.session }],
               );
               setActiveTabId(tabId);
+              // First tab on startup → override with our saved session (more reliable than kernel's own restore)
+              if (!hasRestoredSessionRef.current) {
+                hasRestoredSessionRef.current = true;
+                const lastSession = localStorage.getItem("reasonix.lastSession");
+                if (lastSession) {
+                  setTimeout(() => {
+                    invoke("rpc_send", {
+                      line: JSON.stringify({ tabId, cmd: "session_load", name: lastSession }),
+                    }).catch(() => {});
+                  }, 50);
+                }
+              }
               return;
             }
             if (ev.type === "$tab_closed" && tabId) {
@@ -2437,6 +2467,12 @@ export function App() {
               dispatchersRef.current.delete(tabId);
               pendingEventsRef.current.delete(tabId);
               pendingDeltasRef.current.delete(tabId);
+              return;
+            }
+            if (ev.type === "$tab_focus" && tabId) {
+              // Kernel redirected a session_load: the session is already
+              // open in this tab, so just switch to it.
+              setActiveTabId(tabId);
               return;
             }
 
@@ -2453,6 +2489,13 @@ export function App() {
             if (ev.type === "$settings" && tabId) {
               setTabs((prev) =>
                 prev.map((t) => (t.id === tabId ? { ...t, workspaceDir: ev.workspaceDir } : t)),
+              );
+            }
+
+            // Keep tabs[].sessionName in sync so lastSession saves the correct name
+            if (ev.type === "$session_loaded" && tabId) {
+              setTabs((prev) =>
+                prev.map((t) => (t.id === tabId ? { ...t, sessionName: ev.name } : t)),
               );
             }
 
@@ -2519,10 +2562,10 @@ export function App() {
     };
   }, [deliverToTab]);
 
-  const openTab = useCallback(() => {
-    invoke("rpc_send", { line: JSON.stringify({ cmd: "tab_open" }) }).catch((err) =>
-      console.error("tab_open failed", err),
-    );
+  const openTab = useCallback((workspaceDir?: string) => {
+    invoke("rpc_send", {
+      line: JSON.stringify({ cmd: "tab_open", workspaceDir }),
+    }).catch((err) => console.error("tab_open failed", err));
   }, []);
 
   const closeTab = useCallback(
@@ -2534,6 +2577,12 @@ export function App() {
     },
     [tabs.length],
   );
+
+  const abortTab = useCallback((id: string) => {
+    invoke("rpc_send", { line: JSON.stringify({ cmd: "abort", tabId: id }) }).catch((err) =>
+      console.error("abort failed", err),
+    );
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -2595,6 +2644,13 @@ export function App() {
           registerDispatch={registerDispatch}
           onNewTab={openTab}
           onCloseTab={() => closeTab(t.id)}
+          onCloseTabById={closeTab}
+          onAbortTabById={abortTab}
+          onClearTabSession={(name) =>
+            setTabs((prev) =>
+              prev.map((tab) => (tab.sessionName === name ? { ...tab, sessionName: undefined } : tab)),
+            )
+          }
           canCloseTab={tabs.length > 1}
           theme={theme}
           onSetTheme={setTheme}
@@ -2611,6 +2667,11 @@ export function App() {
           tabsList={tabs}
           activeTabId={activeTabId}
           setActiveTabId={setActiveTabId}
+          onBusyChange={(busy) =>
+            setTabs((prev) => prev.map((tab) => (tab.id === t.id ? { ...tab, busy } : tab)))
+          }
+          onSaveScroll={saveScrollPosition}
+          getScrollPosition={getScrollPosition}
         />
       ))}
     </>
