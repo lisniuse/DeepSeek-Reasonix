@@ -39,23 +39,23 @@ export function ContextPanel({
     <aside className="ctx">
       <div className="ctx-tabs">
         <div className="ctx-tab" data-active={tab === "files"} onClick={() => setTab("files")}>
-          文件
+          {t("contextPanel.tabFiles")}
         </div>
         <div className="ctx-tab" data-active={tab === "tools"} onClick={() => setTab("tools")}>
-          工具
+          {t("contextPanel.tabTools")}
         </div>
         <div className="ctx-tab" data-active={tab === "memory"} onClick={() => setTab("memory")}>
-          记忆
+          {t("contextPanel.tabMemory")}
         </div>
         <div className="ctx-tab" data-active={tab === "rules"} onClick={() => setTab("rules")}>
-          规则
+          {t("contextPanel.tabRules")}
         </div>
       </div>
 
       <div className="ctx-body">
         <div className="ctx-block">
           <div className="h">
-            <span>上下文 · tokens</span>
+            <span>{t("contextPanel.contextTokens")}</span>
             <span className="right">
               {(reserved + used + cached).toLocaleString()} /{" "}
               {CONTEXT_MAX_TOKENS.toLocaleString()}
@@ -133,8 +133,8 @@ function CtxFiles({ files }: { files: SessionFile[] }) {
   return (
     <div className="ctx-block">
       <div className="h">
-        <span>上下文中的文件</span>
-        <span className="right">{files.length === 0 ? "—" : `${files.length} files`}</span>
+        <span>{t("contextPanel.filesHeading")}</span>
+        <span className="right">{files.length === 0 ? "—" : t("contextPanel.fileCount", { n: String(files.length) })}</span>
       </div>
       <div className="tree">
         {files.length === 0 ? (
@@ -179,17 +179,17 @@ function CtxTools({ specs, bridged }: { specs: McpSpecInfo[]; bridged: boolean }
   return (
     <div className="ctx-block">
       <div className="h">
-        <span>MCP 服务器</span>
+        <span>{t("contextPanel.mcpHeading")}</span>
         <span className="right">
           {specs.length === 0
             ? "—"
             : bridged
-              ? `${specs.length} ready`
-              : `${readyCount}/${specs.length} ready`}
+              ? t("contextPanel.mcpReady", { n: String(specs.length) })
+              : t("contextPanel.mcpReady", { n: `${readyCount}/${specs.length}` })}
         </span>
       </div>
       {specs.length === 0 ? (
-        <div className="ctx-empty">未配置 MCP 服务器</div>
+        <div className="ctx-empty">{t("contextPanel.mcpNotConfigured")}</div>
       ) : (
         specs.map((s) => {
           const dot =
@@ -203,14 +203,14 @@ function CtxTools({ specs, bridged }: { specs: McpSpecInfo[]; bridged: boolean }
             : s.status === "connected"
               ? typeof s.toolCount === "number"
                 ? ` · ${s.toolCount} tools`
-                : " · ready"
+                : ` · ${t("contextPanel.mcpStatusReady")}`
               : s.status === "handshake"
-                ? " · connecting"
+                ? ` · ${t("contextPanel.mcpStatusConnecting")}`
                 : s.status === "disabled"
-                  ? " · disabled"
+                  ? ` · ${t("contextPanel.mcpStatusDisabled")}`
                   : s.status === "failed"
-                    ? " · failed"
-                    : " · configured";
+                    ? ` · ${t("contextPanel.mcpStatusFailed")}`
+                    : ` · ${t("contextPanel.mcpStatusConfigured")}`;
           return (
             <div className="mcp-row" key={s.raw}>
               <span className="ico">
@@ -236,7 +236,7 @@ function CtxMemory({ entries }: { entries: MemoryEntryInfo[] }) {
   return (
     <div className="ctx-block">
       <div className="h">
-        <span>长期记忆</span>
+        <span>{t("contextPanel.memoryHeading")}</span>
         <span className="right">{entries.length === 0 ? "—" : `${entries.length} 项`}</span>
       </div>
       {entries.length === 0 ? (
@@ -261,7 +261,7 @@ function CtxRules({ settings }: { settings: Settings | null }) {
   const editMode = settings?.editMode ?? "review";
   const items: { p: string; allow: boolean; desc: string }[] =
     editMode === "yolo"
-      ? [{ p: "*", allow: true, desc: "YOLO 模式 · 所有工具调用自动批准" }]
+      ? [{ p: "*", allow: true, desc: t("contextPanel.yoloModeDesc") }]
       : editMode === "auto"
         ? [
             { p: "read_file, list_directory, search_files, *", allow: true, desc: "只读工具自动批准" },
@@ -269,19 +269,19 @@ function CtxRules({ settings }: { settings: Settings | null }) {
             { p: "edit_file, write_file, run_command (其他)", allow: false, desc: "写入与未知 shell 命令需确认" },
           ]
         : [
-            { p: "*", allow: false, desc: "Review 模式 · 每个工具调用都需确认" },
+            { p: "*", allow: false, desc: t("contextPanel.reviewModeDesc") },
           ];
   return (
     <div className="ctx-block">
       <div className="h">
-        <span>自动批准</span>
+        <span>{t("contextPanel.autoApprovalHeading")}</span>
         <span className="right">{editMode}</span>
       </div>
       {items.map((r) => (
         <div className="rule" key={r.p}>
           <div className="top">
             <span className={`pat ${r.allow ? "" : "deny"}`}>{r.p}</span>
-            <span className={`sw ${r.allow ? "" : "deny"}`}>{r.allow ? "ALLOW" : "ASK"}</span>
+            <span className={`sw ${r.allow ? "" : "deny"}`}>{r.allow ? t("contextPanel.allowLabel") : t("contextPanel.askLabel")}</span>
           </div>
           <div className="desc">{r.desc}</div>
         </div>

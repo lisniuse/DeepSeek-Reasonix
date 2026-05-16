@@ -63,17 +63,17 @@ export function StatusBar({
       </span>
       <span className="seg" title="cache hit">
         <I.zap size={11} style={{ color: "var(--accent)" }} />
-        <span>cache</span>
+        <span>{t("statusbar.cache")}</span>
         <span className="v acc">{cacheHitPct}%</span>
       </span>
       <span className="seg">
         <I.cpu size={11} />
-        <span>tokens</span>
+        <span>{t("statusbar.tokens")}</span>
         <span className="v">{tokenLabel(totalTokens)}</span>
       </span>
       <span className="seg">
         <I.coin size={11} />
-        <span>本次</span>
+        <span>{t("statusbar.sessionCost")}</span>
         <span className="v ok">{spent}</span>
       </span>
 
@@ -99,12 +99,12 @@ export function StatusBar({
       </span>
       <span className="seg" title="切换货币 (CNY / USD)" onClick={onToggleCurrency}>
         <I.coin size={11} />
-        <span>余额</span>
+        <span>{t("statusbar.balance")}</span>
         <span className="v ok">{balanceLabel}</span>
       </span>
       <span className="seg" title="切换主题" onClick={onToggleTheme}>
         {theme === THEME.DARK ? <I.moon size={11} /> : <I.sun size={11} />}
-        <span className="v">{theme === THEME.DARK ? "深色" : "浅色"}</span>
+        <span className="v">{theme === THEME.DARK ? t("statusbar.dark") : t("statusbar.light")}</span>
       </span>
     </footer>
   );

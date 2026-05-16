@@ -229,9 +229,9 @@ export function ShellCard({
         ) : state === "running" ? (
           <span className="pill-tag run">{t("cards.shellRunning")}</span>
         ) : state === "failed" ? (
-          <span className="pill-tag err">failed{durationLabel}</span>
+          <span className="pill-tag err">{t("cards.shellFailed")}{durationLabel}</span>
         ) : (
-          <span className="pill-tag ok">done{durationLabel}</span>
+          <span className="pill-tag ok">{t("cards.shellDone")}{durationLabel}</span>
         )
       }
     >
@@ -314,18 +314,18 @@ export function ToolCard({
       defaultOpen={autoExpand}
       meta={
         running ? (
-          <span className="pill-tag run">running</span>
+          <span className="pill-tag run">{t("cards.toolRunning")}</span>
         ) : ok === false ? (
-          <span className="pill-tag err">error · {dur}</span>
+          <span className="pill-tag err">{t("cards.toolErrorLabel")} · {dur}</span>
         ) : (
-          <span className="pill-tag ok">done · {dur}</span>
+          <span className="pill-tag ok">{t("cards.toolDone")} · {dur}</span>
         )
       }
     >
       <div className="tool-call">
         {args ? (
           <div className="row">
-            <span className="k">args</span>
+            <span className="k">{t("cards.toolArgs")}</span>
             <span className="v">
               <span className="str">{args.length > 600 ? `${args.slice(0, 600)}…` : args}</span>
             </span>
@@ -333,7 +333,7 @@ export function ToolCard({
         ) : null}
         {result !== undefined ? (
           <div className="row">
-            <span className="k">{ok === false ? "error" : "result"}</span>
+            <span className="k">{ok === false ? t("cards.toolErrorLabel") : t("cards.toolResultLabel")}</span>
             <span className="v">
               <span className={ok === false ? "num" : "str"}>
                 {result.length > 1200 ? `${result.slice(0, 1200)}…` : result}
@@ -381,7 +381,7 @@ export function DiffCard({
           <span style={{ color: "var(--success)" }}>+{adds}</span>
           <span style={{ color: "var(--danger)" }}>−{rms}</span>
           {applied ? (
-            <span className="pill-tag ok">applied</span>
+            <span className="pill-tag ok">{t("cards.diffApplied")}</span>
           ) : (
             <span className="pill-tag warn">{t("cards.diffAwaiting")}</span>
           )}
@@ -475,7 +475,7 @@ export function WebSearchCard({ query, results }: { query: string; results: Sear
       meta={
         <>
           <span>"{query}"</span>
-          <span className="pill-tag ok">{results.length} hits</span>
+          <span className="pill-tag ok">{t("cards.searchHits", { n: String(results.length) })}</span>
         </>
       }
     >
@@ -641,32 +641,32 @@ export function MetricStrip({
       {cacheHit !== undefined ? (
         <span className="item">
           <I.zap size={11} style={{ color: "var(--accent)" }} />
-          <span>cache_hit</span>
+          <span>{t("cards.metricCacheHit")}</span>
           <span className="v acc">{cacheHit}%</span>
         </span>
       ) : null}
       {promptTokens !== undefined ? (
         <span className="item">
-          <span>prompt</span>
+          <span>{t("cards.metricPrompt")}</span>
           <span className="v">{promptTokens.toLocaleString()} t</span>
         </span>
       ) : null}
       {outputTokens !== undefined ? (
         <span className="item">
-          <span>output</span>
+          <span>{t("cards.metricOutput")}</span>
           <span className="v">{outputTokens.toLocaleString()} t</span>
         </span>
       ) : null}
       {costLabel ? (
         <span className="item">
           <I.coin size={11} />
-          <span>cost</span>
+          <span>{t("cards.metricCost")}</span>
           <span className="v ok">{costLabel}</span>
         </span>
       ) : null}
       {elapsed ? (
         <span className="item">
-          <span>elapsed</span>
+          <span>{t("cards.metricElapsed")}</span>
           <span className="v">{elapsed}</span>
         </span>
       ) : null}
