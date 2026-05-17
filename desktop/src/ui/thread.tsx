@@ -46,7 +46,7 @@ export const UserMsg = memo(function UserMsg({
 
 /** Below this the process is shorter than the peek container's own chrome,
  *  so folding it would cost more space than it saves — render it as-is. */
-const PROC_PEEK_THRESHOLD_PX = 200;
+const PROC_PEEK_THRESHOLD_PX = 100;
 
 /** Folds the thinking + tool-call process (everything before the conclusion)
  *  into a fixed-height, gradient-faded container — but only when the process

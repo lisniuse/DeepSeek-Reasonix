@@ -1581,6 +1581,21 @@ html[data-platform="macos"] .titlebar .tb-left {
   background: var(--bg-2);
 }
 
+/* Compact header — thinking / tool-call process cards stay visually quiet. */
+.card.is-compact .card-head {
+  padding: 5px 12px;
+  gap: 7px;
+  font-size: 12px;
+}
+.card.is-compact .card-head .ico {
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+}
+.card.is-compact .card-head .name {
+  font-size: 12px;
+}
+
 /* ---- Process group (thinking + tool calls folded after the conclusion) ---- */
 
 .proc-group {
@@ -1590,7 +1605,7 @@ html[data-platform="macos"] .titlebar .tb-left {
   gap: 8px;
 }
 .proc-group.is-clipped {
-  height: 120px;
+  height: 80px;
   overflow: hidden;
 }
 .proc-group-inner {
@@ -1638,6 +1653,15 @@ html[data-platform="macos"] .titlebar .tb-left {
 }
 .proc-group.is-clipped .proc-group-toggle:hover {
   transform: translate(-50%, -50%) scale(1.04);
+}
+/* Expanded: the collapse button sticks to the viewport bottom so a long
+ * tool-call process can be folded without scrolling to its end. Right-aligned
+ * to clear the centered scroll-to-bottom button. */
+.proc-group.is-open .proc-group-toggle {
+  position: sticky;
+  bottom: 16px;
+  align-self: flex-end;
+  z-index: 2;
 }
 .proc-group-toggle:hover {
   color: var(--fg);
