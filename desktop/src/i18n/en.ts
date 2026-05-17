@@ -78,9 +78,18 @@ export const en = {
   toast: {
     copied: "Copied",
     copiedMd: "Conversation copied as Markdown",
+    savedMd: "Conversation saved as Markdown",
     newSession: "Started a new session",
     cleared: "UI cleared",
     aboutLine: "Reasonix v{version} · cache-first DeepSeek agent",
+  },
+  git: {
+    noBranch: "(no .git)",
+    searchPlaceholder: "Search branches…",
+    empty: "No branches found",
+    emptySearch: "No matching branches",
+    switchOk: "Switched to {name}",
+    switchFailed: "Switch failed: {err}",
   },
   composer: {
     busy: "reasonix is thinking…",

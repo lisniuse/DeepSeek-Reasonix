@@ -166,6 +166,114 @@ fn git_status(root: String) -> Result<Vec<GitStatusEntry>, String> {
     Ok(out)
 }
 
+#[derive(Serialize)]
+struct GitBranchEntry {
+    name: String,
+    current: bool,
+    kind: &'static str, // "local" | "remote"
+}
+
+#[tauri::command]
+fn git_branch_current(root: String) -> Result<Option<String>, String> {
+    use std::process::Command;
+    let root_path = Path::new(&root);
+    if !root_path.is_dir() {
+        return Err(format!("not a directory: {root}"));
+    }
+    let mut cmd = Command::new("git");
+    cmd.arg("branch").arg("--show-current").current_dir(root_path);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    let output = match cmd.output() {
+        Ok(o) => o,
+        Err(_) => return Ok(None),
+    };
+    if !output.status.success() {
+        return Ok(None);
+    }
+    let name = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if name.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(name))
+}
+
+#[tauri::command]
+fn git_branch_list(root: String) -> Result<Vec<GitBranchEntry>, String> {
+    use std::process::Command;
+    let root_path = Path::new(&root);
+    if !root_path.is_dir() {
+        return Err(format!("not a directory: {root}"));
+    }
+    let mut cmd = Command::new("git");
+    cmd.arg("branch").arg("-a").arg("--format=%(refname:short)\t%(HEAD)").current_dir(root_path);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    let output = match cmd.output() {
+        Ok(o) => o,
+        Err(_) => return Ok(Vec::new()),
+    };
+    if !output.status.success() {
+        return Ok(Vec::new());
+    }
+    let mut out = Vec::new();
+    for line in String::from_utf8_lossy(&output.stdout).lines() {
+        let line = line.trim();
+        if line.is_empty() { continue; }
+        let parts: Vec<&str> = line.splitn(2, '\t').collect();
+        let name = parts[0].to_string();
+        let current = parts.get(1).map_or(false, |h| h.contains('*'));
+        let kind = if name.starts_with("remotes/") || name.starts_with("origin/") {
+            // Strip the remote prefix for display
+            let display = name
+                .strip_prefix("remotes/")
+                .or_else(|| name.strip_prefix("origin/"))
+                .unwrap_or(&name);
+            if display.contains('/') {
+                // e.g. "origin/main" or "remotes/origin/main"
+                continue; // skip deeply nested remotes for simplicity
+            }
+            "remote"
+        } else {
+            "local"
+        };
+        // Use the display name (without remote prefix) as the key
+        out.push(GitBranchEntry { name: name.to_string(), current, kind });
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+fn git_checkout(root: String, branch: String) -> Result<(), String> {
+    use std::process::Command;
+    let root_path = Path::new(&root);
+    if !root_path.is_dir() {
+        return Err(format!("not a directory: {root}"));
+    }
+    let mut cmd = Command::new("git");
+    cmd.arg("checkout").arg(&branch).current_dir(root_path);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    let output = cmd.output().map_err(|e| format!("spawn git: {e}"))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("git checkout failed: {}", stderr.trim()));
+    }
+    Ok(())
+}
+
 #[tauri::command]
 fn read_global_memory() -> Result<String, String> {
     let home = std::env::var("HOME")
@@ -186,6 +294,15 @@ fn write_global_memory(content: String) -> Result<(), String> {
     let dir = Path::new(&home).join(".reasonix");
     std::fs::create_dir_all(&dir).map_err(|e| format!("mkdir: {e}"))?;
     let path = dir.join("REASONIX.md");
+    std::fs::write(&path, content).map_err(|e| format!("write: {e}"))?;
+    Ok(())
+}
+
+#[tauri::command]
+fn save_export_file(path: String, content: String) -> Result<(), String> {
+    if let Some(parent) = Path::new(&path).parent() {
+        std::fs::create_dir_all(parent).map_err(|e| format!("mkdir: {e}"))?;
+    }
     std::fs::write(&path, content).map_err(|e| format!("write: {e}"))?;
     Ok(())
 }
@@ -245,8 +362,12 @@ fn main() {
             open_in_editor,
             list_workspace_tree,
             git_status,
+            git_branch_current,
+            git_branch_list,
+            git_checkout,
             read_global_memory,
-            write_global_memory
+            write_global_memory,
+            save_export_file
         ])
         .setup(|app| {
             use tauri::Manager;

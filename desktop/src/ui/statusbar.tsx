@@ -28,6 +28,9 @@ export function StatusBar({
   onToggleTheme,
   onToggleCurrency,
   onOpenSettings,
+  gitBranch,
+  onToggleGit,
+  gitRef,
 }: {
   settings: Settings | null;
   balance: Balance | null;
@@ -42,6 +45,9 @@ export function StatusBar({
   onToggleTheme: () => void;
   onToggleCurrency: () => void;
   onOpenSettings: () => void;
+  gitBranch: string | null;
+  onToggleGit: () => void;
+  gitRef: React.RefObject<HTMLSpanElement | null>;
 }) {
   const totalTokens = usage.cacheHitTokens + usage.cacheMissTokens;
   const cacheHitPct = totalTokens > 0 ? Math.round((usage.cacheHitTokens / totalTokens) * 100) : 0;
@@ -53,6 +59,16 @@ export function StatusBar({
   const connState = !ready ? "off" : busy ? "running" : "online";
   return (
     <footer className="statusbar">
+      <span
+        ref={gitRef}
+        className="seg"
+        title={gitBranch ? `git branch: ${gitBranch}` : "git branch"}
+        onClick={onToggleGit}
+        style={{ cursor: "pointer" }}
+      >
+        <I.branch size={11} style={{ color: gitBranch ? "var(--violet)" : "var(--muted)" }} />
+        <span className="v vio">{gitBranch ?? "—"}</span>
+      </span>
       <span className="seg" title={`API · ${settings?.baseUrl ?? "api.deepseek.com"}`}>
         <span
           className={connState === "off" ? "sw warn" : "sw"}

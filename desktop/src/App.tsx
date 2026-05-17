@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { open as openDialog, save } from "@tauri-apps/plugin-dialog";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { type Update, check } from "@tauri-apps/plugin-updater";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
@@ -42,6 +42,7 @@ import { useElapsed } from "./ui/live";
 import { SettingsModal, type PageId as SettingsPageId } from "./ui/settings";
 import { Sidebar } from "./ui/sidebar";
 import { Splash, shouldShowSplash } from "./ui/splash";
+import { GitBranchPop } from "./ui/git-branch-pop";
 import { StatusBar } from "./ui/statusbar";
 import {
   ActivePlanTaskCard,
@@ -976,6 +977,26 @@ function TabRuntime({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsPage, setSettingsPage] = useState<SettingsPageId>("general");
   const [jobsOpen, setJobsOpen] = useState(false);
+  const [gitOpen, setGitOpen] = useState(false);
+  const [gitBranch, setGitBranch] = useState<string | null>(null);
+  const gitAnchorRef = useRef<HTMLSpanElement>(null);
+  const gitDirRef = useRef<string>("");
+  const loadGitBranch = useCallback((dir: string) => {
+    if (!dir) {
+      setGitBranch(null);
+      return;
+    }
+    invoke<string | null>("git_branch_current", { root: dir })
+      .then((name) => setGitBranch(name))
+      .catch(() => setGitBranch(null));
+  }, []);
+  useEffect(() => {
+    const ws = state.settings?.workspaceDir;
+    if (ws && ws !== gitDirRef.current) {
+      gitDirRef.current = ws;
+      loadGitBranch(ws);
+    }
+  }, [state.settings?.workspaceDir, loadGitBranch]);
   const openSettingsAt = useCallback((page: SettingsPageId = "general") => {
     setSettingsPage(page);
     setSettingsOpen(true);
@@ -1299,7 +1320,7 @@ function TabRuntime({
         flashToast(t("app.toast.copied"));
       }
     },
-    exportMarkdown: () => {
+    exportMarkdown: async () => {
       const userLabel = t("app.exportUserLabel");
       const md = state.messages
         .map((m) => {
@@ -1322,8 +1343,15 @@ function TabRuntime({
         .filter(Boolean)
         .join("\n\n---\n\n");
       if (md) {
-        void navigator.clipboard.writeText(md);
-        flashToast(t("app.toast.copiedMd"));
+        const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+        const p = await save({
+          defaultPath: `reasonix-${ts}.md`,
+          filters: [{ name: "Markdown", extensions: ["md"] }],
+        });
+        if (p) {
+          await invoke("save_export_file", { path: p, content: md });
+          flashToast(t("app.toast.savedMd"));
+        }
       }
     },
     pickWorkspace,
@@ -1418,7 +1446,7 @@ function TabRuntime({
       : workspaceLabel;
   })();
 
-  const exportConversation = useCallback(() => {
+  const exportConversation = useCallback(async () => {
     const userLabel = t("app.exportUserLabel");
     const md = state.messages
       .map((m) => {
@@ -1446,8 +1474,15 @@ function TabRuntime({
       .filter(Boolean)
       .join("\n\n---\n\n");
     if (md) {
-      void navigator.clipboard.writeText(md);
-      flashToast(t("app.toast.copiedMd"));
+      const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      const p = await save({
+        defaultPath: `reasonix-${ts}.md`,
+        filters: [{ name: "Markdown", extensions: ["md"] }],
+      });
+      if (p) {
+        await invoke("save_export_file", { path: p, content: md });
+        flashToast(t("app.toast.savedMd"));
+      }
     } else {
       flashToast(t("app.toast.emptySession"));
     }
@@ -1761,6 +1796,28 @@ function TabRuntime({
           onToggleTheme={onToggleTheme}
           onToggleCurrency={onToggleCurrency}
           onOpenSettings={() => openSettingsAt("general")}
+          gitBranch={gitBranch}
+          onToggleGit={() => setGitOpen((v) => !v)}
+          gitRef={gitAnchorRef}
+        />
+
+        <GitBranchPop
+          open={gitOpen}
+          onClose={() => setGitOpen(false)}
+          workspaceDir={state.settings?.workspaceDir}
+          onSwitchDone={() => {
+            const ws = state.settings?.workspaceDir;
+            if (ws) loadGitBranch(ws);
+          }}
+          anchor={
+            gitAnchorRef.current
+              ? {
+                  left:
+                    gitAnchorRef.current.getBoundingClientRect().left +
+                    window.scrollX,
+                }
+              : undefined
+          }
         />
 
         <CommandPalette

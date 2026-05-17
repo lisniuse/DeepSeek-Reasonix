@@ -80,9 +80,18 @@ export const zhCN: typeof en = {
   toast: {
     copied: "已复制",
     copiedMd: "整段对话已复制为 Markdown",
+    savedMd: "整段对话已保存为 Markdown",
     newSession: "已开新会话",
     cleared: "已清空 UI",
     aboutLine: "Reasonix v{version} · cache-first DeepSeek agent",
+  },
+  git: {
+    noBranch: "(无 .git)",
+    searchPlaceholder: "搜索分支…",
+    empty: "无分支",
+    emptySearch: "无匹配分支",
+    switchOk: "已切换到 {name}",
+    switchFailed: "切换失败: {err}",
   },
   composer: {
     busy: "reasonix 正在思考…",
