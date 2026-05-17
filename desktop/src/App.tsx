@@ -2173,7 +2173,7 @@ function EmptyState({
         padding: "48px 16px 24px",
         textAlign: "center",
         color: "var(--muted)",
-        fontFamily: "var(--font-sans, 'Anthropic Sans', 'Geist', sans-serif)",
+        fontFamily: "var(--font-sans, 'Geist', sans-serif)",
       }}
     >
       <div

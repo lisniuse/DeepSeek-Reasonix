@@ -2,15 +2,6 @@
    Reasonix — DeepSeek Agents desktop UI
    ============================================================ */
 
-@font-face {
-  font-family: "Anthropic Sans";
-  src: url("/fonts/AnthropicSans.woff2") format("woff2");
-  font-weight: 300 800;
-  font-style: normal;
-  font-display: swap;
-  font-feature-settings: "dlig" 0;
-}
-
 *,
 *::before,
 *::after {
@@ -27,7 +18,7 @@ body,
 }
 
 body {
-  font-family: var(--font-sans, "Anthropic Sans", "Geist", system-ui, sans-serif);
+  font-family: var(--font-sans, "Geist", system-ui, sans-serif);
   font-size: 14px;
   line-height: 1.5;
   color: var(--fg);
@@ -2062,7 +2053,7 @@ html[data-platform="macos"] .titlebar .tb-left {
   padding: 12px 16px 14px;
 }
 .reason .stream {
-  font-family: var(--font-sans, "Anthropic Sans", "Geist", system-ui, sans-serif);
+  font-family: var(--font-sans, "Geist", system-ui, sans-serif);
   font-style: italic;
   font-size: 13.5px;
   line-height: 1.7;
@@ -2175,7 +2166,7 @@ html[data-platform="macos"] .titlebar .tb-left {
   font-size: 14px;
   color: var(--fg-2);
   flex: 1;
-  font-family: var(--font-sans, "Anthropic Sans", "Geist", system-ui, sans-serif);
+  font-family: var(--font-sans, "Geist", system-ui, sans-serif);
 }
 .approve-row .why b {
   color: var(--warning);
@@ -2189,7 +2180,7 @@ html[data-platform="macos"] .titlebar .tb-left {
   border-radius: 6px;
   font-size: 14px;
   font-weight: 500;
-  font-family: var(--font-sans, "Anthropic Sans", "Geist", system-ui, sans-serif);
+  font-family: var(--font-sans, "Geist", system-ui, sans-serif);
   border: 1px solid var(--border-strong);
   background: var(--card);
   color: var(--fg);
@@ -3195,7 +3186,7 @@ html[data-platform="macos"] .titlebar .tb-left {
   box-shadow: var(--shadow-lg);
   padding: 12px;
   width: 280px;
-  font-family: var(--font-sans, "Anthropic Sans", "Geist", system-ui, sans-serif);
+  font-family: var(--font-sans, "Geist", system-ui, sans-serif);
   color: var(--fg);
   font-size: 14px;
   z-index: 20;
