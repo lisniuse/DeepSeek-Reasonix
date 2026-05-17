@@ -136,7 +136,7 @@ import { useLanguageReload } from "./hooks/useLanguageReload.js";
 import { useLoopMode } from "./hooks/useLoopMode.js";
 import { usePresetMode } from "./hooks/usePresetMode.js";
 import { useQuit } from "./hooks/useQuit.js";
-import { summarizeCard, useSceneTrace } from "./hooks/useSceneTrace.js";
+import { toSceneCard, useSceneTrace } from "./hooks/useSceneTrace.js";
 import { useScrollback } from "./hooks/useScrollback.js";
 import { useTerminalSetup } from "./hooks/useTerminalSetup.js";
 import { useToolProgressDisplay } from "./hooks/useToolProgressDisplay.js";
@@ -469,11 +469,7 @@ function AppInner({
   );
   const isStreaming = useAgentState((s) => s.cards.some((c) => c.kind === "streaming" && !c.done));
   const cardCount = useAgentState((s) => s.cards.length);
-  const recentCardsJson = useAgentState((s) =>
-    JSON.stringify(
-      s.cards.slice(-24).map((c) => ({ kind: c.kind, summary: summarizeCard(c) ?? "" })),
-    ),
-  );
+  const recentCardsJson = useAgentState((s) => JSON.stringify(s.cards.slice(-24).map(toSceneCard)));
   const activityLabel = useActivityLabel();
   const chatScroll = useChatScrollActions();
   const [input, setInput] = useState("");
@@ -489,13 +485,15 @@ function AppInner({
     if (!isStreaming && liveExpand) setLiveExpand(false);
   }, [isStreaming, liveExpand]);
   const languageVersion = useLanguageReload();
-  // Splash holds for one full whale-spout cycle (~1.4s) so the brand
-  // mark always lands clean and heavy first-paint cost stays hidden.
-  const [bootReady, setBootReady] = useState(false);
+  // Boot splash: skip when config has banner:false, otherwise show
+  // one full whale-spout cycle (~1.4s) so the brand mark lands clean.
+  const showBanner = useMemo(() => readConfig().banner !== false, []);
+  const [bootReady, setBootReady] = useState(!showBanner);
   useEffect(() => {
+    if (!showBanner) return;
     const t = setTimeout(() => setBootReady(true), 1400);
     return () => clearTimeout(t);
-  }, []);
+  }, [showBanner]);
   useEffect(() => {
     markPhase("first_paint");
     dumpStartupProfile();
@@ -627,7 +625,9 @@ function AppInner({
   const [pendingReviseEditor, setPendingReviseEditor] = useState<string | null>(null);
   /** True while the SessionPicker is open mid-chat (triggered by `/sessions`). */
   const [pendingSessionsPicker, setPendingSessionsPicker] = useState(false);
-  const [sessionsPickerList, setSessionsPickerList] = useState<ReturnType<typeof listSessions>>([]);
+  const [sessionsPickerList, setSessionsPickerList] = useState<ReturnType<typeof listSessions>>(
+    () => listSessionsForWorkspace(currentRootDir),
+  );
   const [sessionsPickerFocus, setSessionsPickerFocus] = useState(0);
   /** True while the CheckpointPicker is open mid-chat (triggered by bare `/restore`). */
   const [pendingCheckpointPicker, setPendingCheckpointPicker] = useState(false);
@@ -1316,6 +1316,10 @@ function AppInner({
     );
   }, [slashMatches]);
 
+  useEffect(() => {
+    setSessionsPickerList(listSessionsForWorkspace(currentRootDir));
+  }, [currentRootDir]);
+
   const sessionsJson = useMemo(() => {
     if (!pendingSessionsPicker || sessionsPickerList.length === 0) return undefined;
     return JSON.stringify(
@@ -1326,6 +1330,16 @@ function AppInner({
       }),
     );
   }, [pendingSessionsPicker, sessionsPickerList]);
+
+  const sidebarSessionsJson = useMemo(() => {
+    if (sessionsPickerList.length === 0) return undefined;
+    return JSON.stringify(
+      sessionsPickerList.map((s) => ({
+        title: s.name,
+        meta: s.meta.branch ?? "main",
+      })),
+    );
+  }, [sessionsPickerList]);
 
   const sceneApproval = useMemo(() => {
     if (pendingShell) return { kind: "shell", prompt: pendingShell.command };
@@ -1352,6 +1366,11 @@ function AppInner({
     sessionsFocusedIndex: sessionsJson ? sessionsPickerFocus : undefined,
     walletBalance: balance?.total,
     walletCurrency: balance?.currency,
+    sidebarSessionsJson,
+    sidebarActiveSession: session ?? undefined,
+    mcpServerCount: liveMcpServers.length,
+    editMode,
+    cwd: currentRootDir,
   });
 
   // Ctrl+P / Ctrl+N from PromptInput route here. When any input-prefix
