@@ -1,7 +1,14 @@
 import { type WriteStream, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { Box, Text, useStdin, useStdout } from "ink";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import {
   type JsonlEventSink,
   eventLogPath,
@@ -167,6 +174,7 @@ import { openUrl } from "./open-url.js";
 import { formatLongPaste } from "./paste-collapse.js";
 import { extractOpenQuestionsSection } from "./plan-open-questions.js";
 import { PRESETS, resolvePreset } from "./presets.js";
+import { getActivePromptInput, subscribePromptInput } from "./scene/prompt-input-store.js";
 import { type McpServerSummary, handleSlash, parseSlash, suggestSlashCommands } from "./slash.js";
 import { TurnTranslator } from "./state/TurnTranslator.js";
 import { cardsToDashboardMessages } from "./state/cards-to-messages.js";
@@ -285,6 +293,18 @@ export interface AppProps {
   qqSubmitRef?: { current: ((text: string) => void) | null };
   /** Ref filled by App on mount so QQ errors appear in the TUI log. */
   qqErrorRef?: { current: ((msg: string) => void) | null };
+  /** Ref filled by App on mount so Rust approval-response events route to the right handler. */
+  approvalDispatchRef?: { current: ((kind: string, choice: unknown) => void) | null };
+  /** Ref filled by App on mount so Rust composer-text events update Ink's `input` (so @/slash pickers fire). */
+  rustComposerRef?: { current: ((text: string) => void) | null };
+  /** Apply edit-mode value from Rust (Shift+Tab cycle resolved in Rust, or picker selection). */
+  modeSetRef?: {
+    current: ((value: "review" | "auto" | "yolo") => void) | null;
+  };
+  /** Apply preset value from Rust (picker selection). */
+  presetSetRef?: {
+    current: ((value: "auto" | "flash" | "pro") => void) | null;
+  };
 }
 
 /**
@@ -457,6 +477,10 @@ function AppInner({
   qqChannel,
   qqSubmitRef,
   qqErrorRef,
+  approvalDispatchRef,
+  rustComposerRef,
+  modeSetRef,
+  presetSetRef,
   themeName,
   setThemeName,
   statusBar,
@@ -470,9 +494,31 @@ function AppInner({
   const isStreaming = useAgentState((s) => s.cards.some((c) => c.kind === "streaming" && !c.done));
   const cardCount = useAgentState((s) => s.cards.length);
   const recentCardsJson = useAgentState((s) => JSON.stringify(s.cards.slice(-24).map(toSceneCard)));
+  const sessionModel = useAgentState((s) => s.session.model);
+  const ctxTokens = useAgentState((s) => s.status.promptTokens);
+  const ctxCap = useAgentState(
+    (s) => s.status.promptCap ?? DEEPSEEK_CONTEXT_TOKENS[s.session.model] ?? DEFAULT_CONTEXT_TOKENS,
+  );
+  const sessionCostUsd = useAgentState((s) => s.status.sessionCost);
+  const lastTurnCostUsd = useAgentState((s) => s.status.cost);
+  const cacheHitRatio = useAgentState((s) => s.status.cacheHit);
+  const presetForDisplay = useAgentState((s) => {
+    const p = s.status.preset;
+    return p === "auto" || p === "flash" || p === "pro" ? p : undefined;
+  });
+  const sessionInputTokens = useAgentState((s) => s.status.sessionInputTokens);
+  const sessionOutputTokens = useAgentState((s) => s.status.sessionOutputTokens);
+  const lastTurnMs = useAgentState((s) => s.status.lastTurnMs);
   const activityLabel = useActivityLabel();
   const chatScroll = useChatScrollActions();
   const [input, setInput] = useState("");
+  useEffect(() => {
+    if (!rustComposerRef) return;
+    rustComposerRef.current = (text: string) => setInput(text);
+    return () => {
+      if (rustComposerRef) rustComposerRef.current = null;
+    };
+  }, [rustComposerRef]);
   const [composerCursor, setComposerCursor] = useState(0);
   const [busy, setBusy] = useState(false);
   const [slashUsage, setSlashUsage] = useState<Readonly<Record<string, number>>>(() =>
@@ -566,6 +612,25 @@ function AppInner({
   } = useEditGate(!!codeMode);
   const { preset, setPreset, proArmed, setProArmed, turnOnPro, setTurnOnPro } =
     usePresetMode(model);
+  useEffect(() => {
+    if (!modeSetRef) return;
+    modeSetRef.current = (value) => {
+      setEditMode(value);
+    };
+    return () => {
+      if (modeSetRef) modeSetRef.current = null;
+    };
+  }, [modeSetRef, setEditMode]);
+  useEffect(() => {
+    if (!presetSetRef) return;
+    presetSetRef.current = (value) => {
+      setPreset(value);
+      agentStore.dispatch({ type: "session.preset.change", preset: value });
+    };
+    return () => {
+      if (presetSetRef) presetSetRef.current = null;
+    };
+  }, [presetSetRef, setPreset, agentStore]);
   // Refs that mirror state for stable read-callbacks handed to the
   // embedded dashboard server. The server's `getXxx()` closures are
   // captured once at startDashboard time; without ref-mirrors the
@@ -746,7 +811,13 @@ function AppInner({
   // Ctrl+P/Ctrl+N recall over a turn-local prompt history. We don't
   // persist to disk 闂?the session log already keeps the messages, and
   // cross-session bash-style recall would need per-project scoping.
-  const { recallPrev, recallNext, pushHistory, resetCursor } = useInputRecall(setInput);
+  const {
+    recallPrev,
+    recallNext,
+    pushHistory,
+    resetCursor,
+    history: promptHistory,
+  } = useInputRecall(setInput);
   const { setRawMode, isRawModeSupported } = useStdin();
   // Ctrl+X 闂?hand the composer buffer to $EDITOR. Raw-mode flip lets the
   // editor own line-buffered input; result replaces the composer value.
@@ -922,7 +993,6 @@ function AppInner({
             // Stamped onto every event so the TUI sink + usage log can
             // attribute the run to a skill without extra bookkeeping.
             skillName: skill.name,
-            maxToolIters: skill.maxToolIters,
           });
           return formatSubagentResult(result);
         },
@@ -1316,6 +1386,56 @@ function AppInner({
     );
   }, [slashMatches]);
 
+  const slashCatalogJson = useMemo(() => {
+    const all = suggestSlashCommands("", !!codeMode);
+    return JSON.stringify(
+      all.map((m) => {
+        const i18nKey = `slash.${m.cmd}.description`;
+        const translated = t(i18nKey);
+        const summary = translated === i18nKey ? m.summary : translated;
+        const argCompleter = Array.isArray(m.argCompleter) ? [...m.argCompleter] : undefined;
+        return {
+          cmd: m.cmd,
+          summary,
+          group: m.group,
+          ...(m.argsHint !== undefined ? { argsHint: m.argsHint } : {}),
+          ...(m.aliases && m.aliases.length > 0 ? { aliases: [...m.aliases] } : {}),
+          ...(argCompleter ? { argCompleter } : {}),
+        };
+      }),
+    );
+  }, [codeMode]);
+
+  const atStateJson = useMemo(() => {
+    if (!atState) return undefined;
+    return JSON.stringify(atState);
+  }, [atState]);
+
+  const slashArgStateJson = useMemo(() => {
+    if (!slashArgContext || slashArgContext.kind !== "picker") return undefined;
+    if (!slashArgMatches || slashArgMatches.length === 0) return undefined;
+    return JSON.stringify({
+      cmd: slashArgContext.spec.cmd,
+      partial: slashArgContext.partial,
+      matches: [...slashArgMatches],
+    });
+  }, [slashArgContext, slashArgMatches]);
+
+  const promptHistoryJson = useMemo(
+    () => (promptHistory.length === 0 ? undefined : JSON.stringify(promptHistory)),
+    [promptHistory],
+  );
+
+  const activePromptInput = useSyncExternalStore(
+    subscribePromptInput,
+    getActivePromptInput,
+    getActivePromptInput,
+  );
+  const promptInputJson = useMemo(
+    () => (activePromptInput ? JSON.stringify(activePromptInput) : undefined),
+    [activePromptInput],
+  );
+
   useEffect(() => {
     setSessionsPickerList(listSessionsForWorkspace(currentRootDir));
   }, [currentRootDir]);
@@ -1347,14 +1467,76 @@ function AppInner({
     if (pendingEditReview) return { kind: "edit", prompt: `review ${pendingEditReview.path}` };
     if (pendingChoice) return { kind: "choice", prompt: pendingChoice.question };
     if (pendingPlan) return { kind: "plan", prompt: "approve plan" };
+    if (pendingCheckpoint)
+      return {
+        kind: "checkpoint",
+        prompt: `step ${pendingCheckpoint.completed}/${pendingCheckpoint.total}`,
+      };
     return null;
-  }, [pendingShell, pendingPath, pendingEditReview, pendingChoice, pendingPlan]);
+  }, [pendingShell, pendingPath, pendingEditReview, pendingChoice, pendingPlan, pendingCheckpoint]);
+
+  const approvalJson = useMemo(() => {
+    if (pendingPlan) {
+      const steps = planStepsRef.current;
+      return JSON.stringify({
+        kind: "plan",
+        body: pendingPlan,
+        steps: steps?.map((s) => ({ title: s.title })),
+      });
+    }
+    if (pendingShell) {
+      return JSON.stringify({
+        kind: "shell",
+        command: pendingShell.command,
+        cwd: pendingShell.cwd,
+        timeoutSec: pendingShell.timeoutSec,
+      });
+    }
+    if (pendingPath) {
+      return JSON.stringify({
+        kind: "path",
+        path: pendingPath.path,
+        intent: pendingPath.intent,
+        toolName: pendingPath.toolName,
+      });
+    }
+    if (pendingEditReview) {
+      return JSON.stringify({
+        kind: "edit",
+        path: pendingEditReview.path,
+        search: pendingEditReview.search,
+        replace: pendingEditReview.replace,
+      });
+    }
+    if (pendingChoice) {
+      return JSON.stringify({
+        kind: "choice",
+        question: pendingChoice.question,
+        options: pendingChoice.options,
+        allowCustom: pendingChoice.allowCustom,
+      });
+    }
+    if (pendingCheckpoint) {
+      return JSON.stringify({
+        kind: "checkpoint",
+        title: pendingCheckpoint.title,
+        completed: pendingCheckpoint.completed,
+        total: pendingCheckpoint.total,
+      });
+    }
+    return undefined;
+  }, [pendingPlan, pendingShell, pendingPath, pendingEditReview, pendingChoice, pendingCheckpoint]);
+
+  // Hoisted above useSceneTrace so the dashboard URL can ride the
+  // scene frame to the rust renderer. Definition (incl. setter) lives
+  // here; the auto-start effect that populates it follows further down.
+  const [dashboardUrl, setDashboardUrlState] = useState<string | null>(null);
 
   useSceneTrace({
     cardCount,
     busy,
     activity: activityLabel,
-    model,
+    model: sessionModel,
     recentCardsJson,
     composerText: input,
     composerCursor,
@@ -1370,7 +1552,23 @@ function AppInner({
     sidebarActiveSession: session ?? undefined,
     mcpServerCount: liveMcpServers.length,
     editMode,
+    preset: presetForDisplay,
     cwd: currentRootDir,
+    dashboardUrl: dashboardUrl ?? undefined,
+    ctxTokens,
+    ctxCap,
+    sessionCostUsd,
+    lastTurnCostUsd,
+    cacheHitRatio,
+    sessionInputTokens,
+    sessionOutputTokens,
+    lastTurnMs: lastTurnMs > 0 ? lastTurnMs : undefined,
+    slashCatalogJson,
+    slashArgStateJson,
+    promptHistoryJson,
+    approvalJson,
+    atStateJson,
+    promptInputJson,
   });
 
   // Ctrl+P / Ctrl+N from PromptInput route here. When any input-prefix
@@ -2268,11 +2466,12 @@ function AppInner({
     return dashboardRef.current?.url ?? null;
   }, []);
 
-  // Mirror of the dashboard URL into React state so the StatsPanel
-  // header can render a clickable pill the moment the server is up.
-  // Updated by both the auto-start effect below and the explicit
-  // /dashboard slash path (via startDashboard).
-  const [dashboardUrl, setDashboardUrlState] = useState<string | null>(null);
+  // dashboardUrl state lives near the top of this component so it can
+  // ride the scene frame (see useSceneTrace input above). Mirror of
+  // the dashboard URL so the StatsPanel header can render a clickable
+  // pill the moment the server is up. Updated by both the auto-start
+  // effect below and the explicit /dashboard slash path (via
+  // startDashboard).
 
   // Auto-start the dashboard once the TUI is mounted unless the user
   // opted out with --no-dashboard. The whole point is discoverability:
@@ -2379,6 +2578,85 @@ function AppInner({
         | { type: "cancel" },
     ) => void
   >(() => undefined);
+
+  useEffect(() => {
+    if (!approvalDispatchRef) return;
+    approvalDispatchRef.current = (kind: string, choice: unknown) => {
+      switch (kind) {
+        case "plan": {
+          if (typeof choice === "string") {
+            const mode: "approve" | "refine" | "reject" | null =
+              choice === "approve"
+                ? "approve"
+                : choice === "refine"
+                  ? "refine"
+                  : choice === "cancel"
+                    ? "reject"
+                    : null;
+            if (mode) {
+              handleStagedInputSubmitRef.current("", {
+                plan: pendingPlanRef.current ?? "",
+                mode,
+              });
+              return;
+            }
+            handlePlanConfirmRef.current?.(choice as PlanConfirmChoice).catch(() => undefined);
+          }
+          return;
+        }
+        case "shell": {
+          if (typeof choice === "string") {
+            handleShellConfirmRef.current?.(choice as "run_once" | "always_allow" | "deny");
+          }
+          return;
+        }
+        case "path": {
+          if (typeof choice === "string") {
+            handlePathConfirmRef.current?.(choice as "run_once" | "always_allow" | "deny");
+          }
+          return;
+        }
+        case "edit": {
+          if (typeof choice === "string") {
+            const resolve = editReviewResolveRef.current;
+            if (resolve) {
+              editReviewResolveRef.current = null;
+              resolve({ choice: choice as EditReviewChoice });
+            }
+          }
+          return;
+        }
+        case "choice": {
+          const c = choice as { kind?: string; optionId?: string };
+          if (c?.kind === "pick" && typeof c.optionId === "string") {
+            handleChoiceResolveRef.current?.({ type: "pick", optionId: c.optionId });
+          } else if (c?.kind === "cancel") {
+            handleChoiceResolveRef.current?.({ type: "cancel" });
+          }
+          return;
+        }
+        case "checkpoint": {
+          if (typeof choice === "string") {
+            if (choice === "revise") {
+              const snap = pendingCheckpointRef.current;
+              if (snap) {
+                handleCheckpointReviseSubmitRef.current("", {
+                  stepId: snap.stepId,
+                  title: snap.title,
+                });
+              }
+            } else if (choice === "continue" || choice === "stop") {
+              handleCheckpointConfirmRef.current?.(choice);
+            }
+          }
+          return;
+        }
+      }
+    };
+    return () => {
+      if (approvalDispatchRef) approvalDispatchRef.current = null;
+    };
+  }, [approvalDispatchRef]);
 
   const handleQQModelPick = useCallback(
     (target: string): string => {
@@ -3709,6 +3987,10 @@ function AppInner({
   useEffect(() => {
     pendingPlanRef.current = pendingPlan;
   }, [pendingPlan]);
+  const pendingCheckpointRef = useRef<typeof pendingCheckpoint>(null);
+  useEffect(() => {
+    pendingCheckpointRef.current = pendingCheckpoint;
+  }, [pendingCheckpoint]);
   const handleChoiceConfirmRef = useRef(handleChoiceConfirm);
   useEffect(() => {
     handleChoiceConfirmRef.current = handleChoiceConfirm;
