@@ -85,7 +85,7 @@ export function GitBranchPop({
       >
         <div className="wd-head">
           <I.branch size={12} />
-          <span>{current?.name ?? t("gitNoBranch")}</span>
+          <span>{current?.name ?? t("git.noBranch")}</span>
           <span
             style={{
               marginLeft: "auto",
@@ -100,7 +100,7 @@ export function GitBranchPop({
         <input
           ref={inputRef}
           className="wd-search"
-          placeholder={t("gitSearchPlaceholder")}
+          placeholder={t("git.searchPlaceholder")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => {
@@ -123,7 +123,7 @@ export function GitBranchPop({
                 fontFamily: "inherit",
               }}
             >
-              {query ? t("gitEmptySearch") : t("gitEmpty")}
+              {query ? t("git.emptySearch") : t("git.empty")}
             </div>
           ) : null}
           {items.map((b) => {

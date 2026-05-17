@@ -78,7 +78,6 @@ export const en = {
   toast: {
     copied: "Copied",
     copiedMd: "Conversation copied as Markdown",
-    savedMd: "Conversation saved as Markdown",
     newSession: "Started a new session",
     cleared: "UI cleared",
     aboutLine: "Reasonix v{version} · cache-first DeepSeek agent",
@@ -322,6 +321,7 @@ export const en = {
       copied: "Copied",
       copiedMd: "Copied as Markdown",
       emptySession: "Session is empty",
+      savedMd: "Conversation saved as Markdown",
       langSwitched: "Switched to {lang}",
       modelSwitched: "Switched to {model}",
       modeSwitched: "Mode: {mode}",

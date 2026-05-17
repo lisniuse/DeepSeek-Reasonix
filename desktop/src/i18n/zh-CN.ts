@@ -80,7 +80,6 @@ export const zhCN: typeof en = {
   toast: {
     copied: "已复制",
     copiedMd: "整段对话已复制为 Markdown",
-    savedMd: "整段对话已保存为 Markdown",
     newSession: "已开新会话",
     cleared: "已清空 UI",
     aboutLine: "Reasonix v{version} · cache-first DeepSeek agent",
@@ -334,6 +333,7 @@ export const zhCN: typeof en = {
       copied: "已复制",
       copiedMd: "已复制 Markdown",
       emptySession: "会话为空",
+      savedMd: "整段对话已保存为 Markdown",
       langSwitched: "已切换到{lang}",
       modelSwitched: "已切换到 {model}",
       modeSwitched: "模式: {mode}",
