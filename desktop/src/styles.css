@@ -768,6 +768,18 @@ html[data-platform="macos"] .titlebar .tb-left {
 .side-head .new-btn .shortcut {
   margin-left: auto;
 }
+.side-head .new-btn .shortcut kbd {
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: inherit;
+  color: inherit;
+  background: oklch(100% 0 0 / 0.18);
+  border: none;
+  border-radius: 3px;
+  padding: 1px 5px;
+  box-shadow: none;
+}
 .side-head .icon-btn {
   width: 30px;
   height: 30px;
@@ -1331,7 +1343,7 @@ html[data-platform="macos"] .titlebar .tb-left {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  vertical-align: -0.12em;
+  vertical-align: baseline;
   white-space: nowrap;
 }
 .shortcut kbd {
@@ -2807,6 +2819,13 @@ html:not([data-platform="macos"]) .shortcut kbd[data-key="mod"] {
   border-radius: 3px;
   padding: 0 4px;
   font-size: 14px;
+}
+.hint-row .shortcut kbd {
+  min-width: 0;
+  font-size: 14px;
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  background: var(--panel);
 }
 /* ModeSwitch inside hint-row — slightly smaller to sit inline with text */
 .hint-row .mode-switch {
